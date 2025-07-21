@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { createPortal } from 'react-dom';
 import { Search, Filter, Map, User, Eye, Edit3, Trash2 } from 'lucide-react';
+import { useReadModal } from '@/hooks/useReadModal';
+import { ReadModal } from '@/components/ReadModal';
 
 interface DossierEntry {
   id: string;
@@ -27,8 +28,7 @@ export default function Dossier() {
   const [error, setError] = useState('');
   
   // Modal state
-  const [showDossierReadModal, setShowDossierReadModal] = useState(false);
-  const [readingDossier, setReadingDossier] = useState<DossierEntry | null>(null);
+  const { isOpen, selectedItem: readingDossier, openModal, closeModal } = useReadModal<DossierEntry>();
 
   const filters = [
     { id: 'all', label: 'All Dossiers' },
@@ -187,8 +187,7 @@ export default function Dossier() {
                   transition={{ delay: index * 0.1, duration: 0.5 }}
                   className="group cursor-pointer"
                   onClick={() => {
-                    setReadingDossier(entry);
-                    setShowDossierReadModal(true);
+                    openModal(entry);
                   }}
                 >
                   <div className={`h-full p-6 rounded-lg tech-border transition-all duration-300 hover:scale-105 ${
@@ -253,146 +252,85 @@ export default function Dossier() {
       </div>
 
       {/* Dossier Read Modal */}
-      {showDossierReadModal && readingDossier && createPortal(
-        <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" 
-          style={{ zIndex: 999999 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowDossierReadModal(false);
-              setReadingDossier(null);
-            }
-          }}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className={`rounded-lg border shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden ${
-              readingDossier.city === 'crimson' 
-                ? 'bg-gothic-charcoal border-gothic-crimson' 
-                : 'bg-gothic-charcoal border-gothic-silver'
-            }`}
-            style={{ zIndex: 999999 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={`flex justify-between items-center p-6 border-b ${
-              readingDossier.city === 'crimson' 
-                ? 'border-gothic-red/30' 
-                : 'border-gothic-steel/30'
-            }`}>
-              <div className="flex-1">
-                <h2 className={`text-2xl font-gothic font-bold mb-2 ${
-                  readingDossier.city === 'crimson' 
-                    ? 'text-gothic-crimson' 
-                    : 'text-gothic-silver'
-                }`}>
-                  {readingDossier.title}
-                </h2>
-                <div className="flex items-center space-x-4 text-sm text-gothic-steel">
-                  <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
-                    readingDossier.classification === 'top-secret' ? 'bg-red-900/80 text-red-100' :
-                    readingDossier.classification === 'secret' ? 'bg-orange-900/80 text-orange-100' :
-                    readingDossier.classification === 'confidential' ? 'bg-yellow-900/80 text-yellow-100' :
-                    'bg-green-900/80 text-green-100'
-                  }`}>
-                    {readingDossier.classification}
-                  </span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    readingDossier.city === 'crimson' ? 'bg-gothic-crimson/20 text-gothic-crimson' :
-                    'bg-gothic-silver/20 text-gothic-silver'
-                  }`}>
-                    {readingDossier.city === 'crimson' ? 'Crimson City' : 'Silver Heights'}
-                  </span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    readingDossier.type === 'character' ? 'bg-blue-900/80 text-blue-100' :
-                    readingDossier.type === 'location' ? 'bg-purple-900/80 text-purple-100' :
-                    'bg-gray-900/80 text-gray-100'
-                  }`}>
-                    {readingDossier.type}
-                  </span>
-                  <span>•</span>
-                  <span>{new Date(readingDossier.created_at).toLocaleDateString()}</span>
-                </div>
+      <ReadModal
+        isOpen={isOpen}
+        onClose={closeModal}
+        title={readingDossier?.title || 'Dossier'}
+        theme={readingDossier?.city === 'crimson' ? 'crimson' : 'silver'}
+        size="xl"
+      >
+        {readingDossier && (
+          <>
+            <div className="flex items-center space-x-4 text-sm text-gothic-steel mb-6">
+              <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                readingDossier.classification === 'top-secret' ? 'bg-red-900/80 text-red-100' :
+                readingDossier.classification === 'secret' ? 'bg-orange-900/80 text-orange-100' :
+                readingDossier.classification === 'confidential' ? 'bg-yellow-900/80 text-yellow-100' :
+                'bg-green-900/80 text-green-100'
+              }`}>
+                {readingDossier.classification}
+              </span>
+              <span className={`px-2 py-1 rounded text-xs ${
+                readingDossier.city === 'crimson' ? 'bg-gothic-crimson/20 text-gothic-crimson' :
+                'bg-gothic-silver/20 text-gothic-silver'
+              }`}>
+                {readingDossier.city === 'crimson' ? 'Crimson City' : 'Silver Heights'}
+              </span>
+              <span className={`px-2 py-1 rounded text-xs ${
+                readingDossier.type === 'character' ? 'bg-blue-900/80 text-blue-100' :
+                readingDossier.type === 'location' ? 'bg-purple-900/80 text-purple-100' :
+                'bg-gray-900/80 text-gray-100'
+              }`}>
+                {readingDossier.type}
+              </span>
+              <span>•</span>
+              <span>{new Date(readingDossier.created_at).toLocaleDateString()}</span>
+            </div>
+
+            <div className="mb-6">
+              <h3 className={`text-lg font-semibold mb-3 ${
+                readingDossier.city === 'crimson' 
+                  ? 'text-gothic-crimson' 
+                  : 'text-gothic-silver'
+              }`}>
+                Summary
+              </h3>
+              <div className={`p-4 rounded border ${
+                readingDossier.city === 'crimson'
+                  ? 'bg-gothic-charcoal/50 border-gothic-red/30'
+                  : 'bg-gothic-charcoal/50 border-gothic-steel/30'
+              }`}>
+                <p className="text-gothic-steel leading-relaxed">{readingDossier.summary}</p>
               </div>
-              <button
-                onClick={() => {
-                  setShowDossierReadModal(false);
-                  setReadingDossier(null);
-                }}
-                className="text-gothic-steel hover:text-gothic-silver text-2xl font-bold ml-4"
-                title="Close"
-              >
-                ×
-              </button>
             </div>
             
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
-              <div className="mb-6">
-                <h3 className={`text-lg font-semibold mb-3 ${
-                  readingDossier.city === 'crimson' 
-                    ? 'text-gothic-crimson' 
-                    : 'text-gothic-silver'
-                }`}>
-                  Summary
-                </h3>
-                <div className={`p-4 rounded border ${
-                  readingDossier.city === 'crimson'
-                    ? 'bg-gothic-charcoal/50 border-gothic-red/30'
-                    : 'bg-gothic-charcoal/50 border-gothic-steel/30'
-                }`}>
-                  <p className="text-gothic-steel leading-relaxed">{readingDossier.summary}</p>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className={`text-lg font-semibold mb-3 ${
-                  readingDossier.city === 'crimson' 
-                    ? 'text-gothic-crimson' 
-                    : 'text-gothic-silver'
-                }`}>
-                  Detailed Report
-                </h3>
-                <div className={`p-4 rounded border ${
-                  readingDossier.city === 'crimson'
-                    ? 'bg-gothic-charcoal/50 border-gothic-red/30'
-                    : 'bg-gothic-charcoal/50 border-gothic-steel/30'
-                }`}>
-                  <div className="prose prose-invert max-w-none">
-                    <div className={`leading-relaxed whitespace-pre-wrap text-base ${
-                      readingDossier.city === 'crimson' 
-                        ? 'text-gothic-silver' 
-                        : 'text-gothic-silver'
-                    }`}>
-                      {readingDossier.content}
-                    </div>
+            <div>
+              <h3 className={`text-lg font-semibold mb-3 ${
+                readingDossier.city === 'crimson' 
+                  ? 'text-gothic-crimson' 
+                  : 'text-gothic-silver'
+              }`}>
+                Detailed Report
+              </h3>
+              <div className={`p-4 rounded border ${
+                readingDossier.city === 'crimson'
+                  ? 'bg-gothic-charcoal/50 border-gothic-red/30'
+                  : 'bg-gothic-charcoal/50 border-gothic-steel/30'
+              }`}>
+                <div className="prose prose-invert max-w-none">
+                  <div className={`leading-relaxed whitespace-pre-wrap text-base ${
+                    readingDossier.city === 'crimson' 
+                      ? 'text-gothic-silver' 
+                      : 'text-gothic-silver'
+                  }`}>
+                    {readingDossier.content}
                   </div>
                 </div>
               </div>
             </div>
-            
-            <div className={`flex justify-end items-center p-6 border-t ${
-              readingDossier.city === 'crimson' 
-                ? 'border-gothic-red/30' 
-                : 'border-gothic-steel/30'
-            }`}>
-              <button
-                onClick={() => {
-                  setShowDossierReadModal(false);
-                  setReadingDossier(null);
-                }}
-                className={`px-4 py-2 rounded transition-colors ${
-                  readingDossier.city === 'crimson'
-                    ? 'bg-gothic-crimson text-gothic-charcoal hover:bg-gothic-crimson/80'
-                    : 'bg-gothic-silver text-gothic-charcoal hover:bg-gothic-silver/80'
-                }`}
-              >
-                Close
-              </button>
-            </div>
-          </motion.div>
-        </div>,
-        document.body
-      )}
+          </>
+        )}
+      </ReadModal>
     </div>
   );
 }

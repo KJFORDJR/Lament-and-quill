@@ -127,3 +127,69 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// PUT update thread
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const threadId = params.id;
+    const body = await request.json();
+    const { title, content, author_id } = body;
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Database not available' }, { status: 500 });
+    }
+
+    if (!title?.trim() || !content?.trim()) {
+      return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
+    }
+
+    // Verify thread ownership or admin role
+    const { data: thread } = await supabaseAdmin
+      .from('forum_threads')
+      .select(`
+        author_id,
+        profiles:author_id(user_role)
+      `)
+      .eq('id', threadId)
+      .single();
+
+    const profile = Array.isArray(thread?.profiles) ? thread.profiles[0] : thread?.profiles;
+    if (!thread || (thread.author_id !== author_id && profile?.user_role !== 'admin')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Update the thread
+    const { data: updatedThread, error } = await supabaseAdmin
+      .from('forum_threads')
+      .update({ 
+        title: title.trim(),
+        content: content.trim(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', threadId)
+      .select(`
+        *,
+        profiles:author_id (
+          id,
+          username,
+          city_affiliation,
+          user_role,
+          created_at
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error updating thread:', error);
+      return NextResponse.json({ error: 'Failed to update thread' }, { status: 500 });
+    }
+
+    return NextResponse.json(updatedThread);
+  } catch (err) {
+    console.error('Unexpected error updating thread:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

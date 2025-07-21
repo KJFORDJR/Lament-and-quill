@@ -5,7 +5,8 @@ import { motion } from 'framer-motion';
 import { MessageSquare, Users, ThumbsUp, Eye, Clock, Pin, Star, Plus, Search, Heart, Reply, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
-import { createPortal } from 'react-dom';
+import { useReadModal } from '@/hooks/useReadModal';
+import Modal from '@/components/Modal';
 
 interface Thread {
   id: string;
@@ -70,10 +71,9 @@ export default function Forum() {
     onlineUsers: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
+  const { isOpen: isThreadModalOpen, selectedItem: selectedThread, openModal: openThreadModal, closeModal: closeThreadModal, updateSelectedItem: updateSelectedThread } = useReadModal<Thread>();
   const [threadReplies, setThreadReplies] = useState<Reply[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showThreadModal, setShowThreadModal] = useState(false);
   const [newThread, setNewThread] = useState({
     title: '',
     content: '',
@@ -81,6 +81,12 @@ export default function Forum() {
   });
   const [newReply, setNewReply] = useState('');
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set());
+  
+  // Edit states
+  const [editingThread, setEditingThread] = useState<string | null>(null);
+  const [editingReply, setEditingReply] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editTitle, setEditTitle] = useState('');
 
   const categories = [
     { id: 'all', label: 'All Discussions', color: 'gothic-silver' },
@@ -245,6 +251,14 @@ export default function Forum() {
           });
         }
 
+        // Update selected thread if liking the thread itself
+        if (type === 'thread' && selectedThread && selectedThread.id === id) {
+          updateSelectedThread((prev) => prev ? {
+            ...prev,
+            like_count: prev.like_count + (liked ? 1 : -1)
+          } : null);
+        }
+
         // Refresh data to update like counts
         if (type === 'thread') {
           fetchForumData();
@@ -270,9 +284,134 @@ export default function Forum() {
   };
 
   const openThread = async (thread: Thread) => {
-    setSelectedThread(thread);
-    setShowThreadModal(true);
+    openThreadModal(thread);
     await fetchThreadReplies(thread.id);
+  };
+
+  // Helper function to check if user can edit/delete
+  const canEditDelete = (authorId: string) => {
+    return user && (user.id === authorId || profile?.user_role === 'admin');
+  };
+
+  // Thread edit/delete functions
+  const startEditingThread = (thread: Thread) => {
+    setEditingThread(thread.id);
+    setEditTitle(thread.title);
+    setEditContent(thread.content);
+  };
+
+  const cancelEditThread = () => {
+    setEditingThread(null);
+    setEditTitle('');
+    setEditContent('');
+  };
+
+  const saveThreadEdit = async () => {
+    if (!editingThread || !user || !editTitle.trim() || !editContent.trim()) return;
+
+    try {
+      const response = await fetch(`/api/forum/threads/${editingThread}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editTitle,
+          content: editContent,
+          author_id: user.id
+        })
+      });
+
+      if (response.ok) {
+        const updatedThread = await response.json();
+        updateSelectedThread(() => updatedThread);
+        fetchForumData();
+        cancelEditThread();
+      } else {
+        console.error('Failed to update thread');
+      }
+    } catch (error) {
+      console.error('Error updating thread:', error);
+    }
+  };
+
+  const deleteThread = async (threadId: string) => {
+    if (!user || !window.confirm('Are you sure you want to delete this thread?')) return;
+
+    try {
+      const response = await fetch(`/api/forum/threads/${threadId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author_id: user.id })
+      });
+
+      if (response.ok) {
+        closeThreadModal();
+        fetchForumData();
+      } else {
+        console.error('Failed to delete thread');
+      }
+    } catch (error) {
+      console.error('Error deleting thread:', error);
+    }
+  };
+
+  // Reply edit/delete functions
+  const startEditingReply = (reply: Reply) => {
+    setEditingReply(reply.id);
+    setEditContent(reply.content);
+  };
+
+  const cancelEditReply = () => {
+    setEditingReply(null);
+    setEditContent('');
+  };
+
+  const saveReplyEdit = async () => {
+    if (!editingReply || !user || !editContent.trim()) return;
+
+    try {
+      const response = await fetch(`/api/forum/replies/${editingReply}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: editContent,
+          author_id: user.id
+        })
+      });
+
+      if (response.ok) {
+        if (selectedThread) {
+          fetchThreadReplies(selectedThread.id);
+        }
+        cancelEditReply();
+      } else {
+        console.error('Failed to update reply');
+      }
+    } catch (error) {
+      console.error('Error updating reply:', error);
+    }
+  };
+
+  const deleteReply = async (replyId: string) => {
+    if (!user || !window.confirm('Are you sure you want to delete this reply?')) return;
+
+    try {
+      const response = await fetch(`/api/forum/replies/${replyId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author_id: user.id })
+      });
+
+      if (response.ok) {
+        if (selectedThread) {
+          fetchThreadReplies(selectedThread.id);
+        }
+        fetchForumData(); // Refresh to update reply counts
+      } else {
+        console.error('Failed to delete reply');
+      }
+    } catch (error) {
+      console.error('Error deleting reply:', error);
+    }
   };
 
   const getCityColor = (city: string) => {
@@ -481,9 +620,33 @@ export default function Forum() {
                           </button>
                         )}
                       </div>
-                      {thread.latest_reply && (
-                        <div className="text-xs text-gothic-steel">
-                          Last reply by {thread.latest_reply.profiles.username}
+                      
+                      {/* Edit/Delete buttons for thread author or admin */}
+                      {canEditDelete(thread.author_id) && (
+                        <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditingThread(thread);
+                            }}
+                            className="text-gothic-steel hover:text-gothic-silver transition-colors p-1"
+                            title="Edit thread"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                              <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteThread(thread.id);
+                            }}
+                            className="text-gothic-steel hover:text-gothic-crimson transition-colors p-1"
+                            title="Delete thread"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       )}
                     </div>
@@ -518,106 +681,138 @@ export default function Forum() {
       </div>
 
       {/* Create Thread Modal */}
-      {showCreateModal && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-gothic-charcoal border border-gothic-dark-gray rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-gothic text-gothic-silver">Start New Thread</h2>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-gothic-steel hover:text-white transition-colors"
-              >
-                ✕
-              </button>
-            </div>
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Start New Thread"
+        size="lg"
+      >
+        <form onSubmit={handleCreateThread} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gothic-silver mb-2">Category</label>
+            <select
+              value={newThread.category}
+              onChange={(e) => setNewThread({...newThread, category: e.target.value})}
+              className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded px-3 py-2 text-white focus:outline-none focus:border-gothic-silver"
+            >
+              {categories.filter(c => c.id !== 'all').map(category => (
+                <option key={category.id} value={category.id}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <form onSubmit={handleCreateThread} className="space-y-4">
-              <div>
-                <label className="block text-sm text-gothic-silver mb-2">Category</label>
-                <select
-                  value={newThread.category}
-                  onChange={(e) => setNewThread({...newThread, category: e.target.value})}
-                  className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded px-3 py-2 text-white focus:outline-none focus:border-gothic-silver"
-                >
-                  {categories.filter(c => c.id !== 'all').map(category => (
-                    <option key={category.id} value={category.id}>
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div>
+            <label className="block text-sm text-gothic-silver mb-2">Title</label>
+            <input
+              type="text"
+              value={newThread.title}
+              onChange={(e) => setNewThread({...newThread, title: e.target.value})}
+              className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded px-3 py-2 text-white focus:outline-none focus:border-gothic-silver"
+              placeholder="Enter thread title..."
+              required
+            />
+          </div>
 
-              <div>
-                <label className="block text-sm text-gothic-silver mb-2">Title</label>
-                <input
-                  type="text"
-                  value={newThread.title}
-                  onChange={(e) => setNewThread({...newThread, title: e.target.value})}
-                  className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded px-3 py-2 text-white focus:outline-none focus:border-gothic-silver"
-                  placeholder="Enter thread title..."
-                  required
-                />
-              </div>
+          <div>
+            <label className="block text-sm text-gothic-silver mb-2">Content</label>
+            <textarea
+              value={newThread.content}
+              onChange={(e) => setNewThread({...newThread, content: e.target.value})}
+              className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded px-3 py-2 text-white focus:outline-none focus:border-gothic-silver"
+              placeholder="Share your thoughts..."
+              rows={6}
+              required
+            />
+          </div>
 
-              <div>
-                <label className="block text-sm text-gothic-silver mb-2">Content</label>
-                <textarea
-                  value={newThread.content}
-                  onChange={(e) => setNewThread({...newThread, content: e.target.value})}
-                  className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded px-3 py-2 text-white focus:outline-none focus:border-gothic-silver"
-                  placeholder="Share your thoughts..."
-                  rows={6}
-                  required
-                />
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="submit"
-                  className="cyber-button flex-1"
-                  disabled={!newThread.title.trim() || !newThread.content.trim()}
-                >
-                  Create Thread
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-6 py-2 bg-gothic-dark-gray hover:bg-gothic-dark-gray/80 text-gothic-steel rounded transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>,
-        document.body
-      )}
+          <div className="flex gap-4 pt-4">
+            <button
+              type="submit"
+              className="cyber-button flex-1"
+              disabled={!newThread.title.trim() || !newThread.content.trim()}
+            >
+              Create Thread
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(false)}
+              className="px-6 py-2 bg-gothic-dark-gray hover:bg-gothic-dark-gray/80 text-gothic-steel rounded transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Thread View Modal */}
-      {showThreadModal && selectedThread && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-gothic-charcoal border border-gothic-dark-gray rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
-          >
+      {/* Thread Modal */}
+      <Modal 
+        isOpen={isThreadModalOpen && !!selectedThread} 
+        onClose={closeThreadModal}
+        title={selectedThread?.title || 'Thread'}
+        size="xl"
+      >
+        {selectedThread && (
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
             <div className="p-6 border-b border-gothic-dark-gray">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-2">
                   {selectedThread.is_pinned && <Pin size={20} className="text-yellow-400" />}
-                  <h2 className="text-2xl font-gothic text-gothic-silver">{selectedThread.title}</h2>
+                  {editingThread === selectedThread.id ? (
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="text-2xl font-gothic text-gothic-silver bg-gothic-dark-gray border border-gothic-dark-gray rounded px-2 py-1 focus:outline-none focus:border-gothic-silver"
+                    />
+                  ) : (
+                    <h2 className="text-2xl font-gothic text-gothic-silver">{selectedThread.title}</h2>
+                  )}
                 </div>
-                <button
-                  onClick={() => setShowThreadModal(false)}
-                  className="text-gothic-steel hover:text-white transition-colors"
-                >
-                  ✕
-                </button>
+                
+                {/* Thread actions for author or admin */}
+                {canEditDelete(selectedThread.author_id) && editingThread !== selectedThread.id && (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => startEditingThread(selectedThread)}
+                      className="text-gothic-steel hover:text-gothic-silver transition-colors p-1"
+                      title="Edit thread"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => deleteThread(selectedThread.id)}
+                      className="text-gothic-steel hover:text-gothic-crimson transition-colors p-1"
+                      title="Delete thread"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Save/Cancel buttons when editing */}
+                {editingThread === selectedThread.id && (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={saveThreadEdit}
+                      className="px-3 py-1 bg-gothic-silver text-gothic-charcoal rounded hover:bg-gothic-silver/80 transition-colors text-sm"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={cancelEditThread}
+                      className="px-3 py-1 bg-gothic-dark-gray text-gothic-steel rounded hover:bg-gothic-dark-gray/80 transition-colors text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-4 text-sm text-gothic-steel">
@@ -637,9 +832,18 @@ export default function Forum() {
             <div className="flex-1 overflow-y-auto p-6">
               <div className="mb-8">
                 <div className="bg-gothic-dark-gray/30 p-4 rounded-lg border border-gothic-dark-gray/30 mb-4">
-                  <p className="text-white leading-relaxed whitespace-pre-wrap">
-                    {selectedThread.content}
-                  </p>
+                  {editingThread === selectedThread.id ? (
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded px-3 py-2 text-white focus:outline-none focus:border-gothic-silver resize-none"
+                      rows={8}
+                    />
+                  ) : (
+                    <p className="text-white leading-relaxed whitespace-pre-wrap">
+                      {selectedThread.content}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-4 text-sm">
@@ -670,7 +874,7 @@ export default function Forum() {
                 </h3>
                 
                 {threadReplies.map((reply) => (
-                  <div key={reply.id} className="bg-gothic-dark-gray/20 p-4 rounded-lg border border-gothic-dark-gray/30">
+                  <div key={reply.id} className="group bg-gothic-dark-gray/20 p-4 rounded-lg border border-gothic-dark-gray/30">
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-2">
                         <span className={`font-medium ${getCityColor(reply.profiles.city_affiliation)}`}>
@@ -682,24 +886,76 @@ export default function Forum() {
                         </span>
                       </div>
                       
-                      {user && (
-                        <button
-                          onClick={() => handleLike('reply', reply.id)}
-                          className={`flex items-center transition-colors ${
-                            likedItems.has(`reply_${reply.id}`)
-                              ? 'text-gothic-crimson'
-                              : 'text-gothic-steel hover:text-gothic-crimson'
-                          }`}
-                        >
-                          <Heart size={14} className="mr-1" fill={likedItems.has(`reply_${reply.id}`) ? 'currentColor' : 'none'} />
-                          {reply.like_count}
-                        </button>
-                      )}
+                      <div className="flex items-center space-x-2">
+                        {user && (
+                          <button
+                            onClick={() => handleLike('reply', reply.id)}
+                            className={`flex items-center transition-colors ${
+                              likedItems.has(`reply_${reply.id}`)
+                                ? 'text-gothic-crimson'
+                                : 'text-gothic-steel hover:text-gothic-crimson'
+                            }`}
+                          >
+                            <Heart size={14} className="mr-1" fill={likedItems.has(`reply_${reply.id}`) ? 'currentColor' : 'none'} />
+                            {reply.like_count}
+                          </button>
+                        )}
+
+                        {/* Edit/Delete buttons for reply author or admin */}
+                        {canEditDelete(reply.author_id) && editingReply !== reply.id && (
+                          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => startEditingReply(reply)}
+                              className="text-gothic-steel hover:text-gothic-silver transition-colors p-1"
+                              title="Edit reply"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => deleteReply(reply.id)}
+                              className="text-gothic-steel hover:text-gothic-crimson transition-colors p-1"
+                              title="Delete reply"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Save/Cancel buttons when editing */}
+                        {editingReply === reply.id && (
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={saveReplyEdit}
+                              className="px-2 py-1 bg-gothic-silver text-gothic-charcoal rounded hover:bg-gothic-silver/80 transition-colors text-xs"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={cancelEditReply}
+                              className="px-2 py-1 bg-gothic-dark-gray text-gothic-steel rounded hover:bg-gothic-dark-gray/80 transition-colors text-xs"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
-                    <p className="text-white leading-relaxed whitespace-pre-wrap">
-                      {reply.content}
-                    </p>
+                    {editingReply === reply.id ? (
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded px-3 py-2 text-white focus:outline-none focus:border-gothic-silver resize-none"
+                        rows={4}
+                      />
+                    ) : (
+                      <p className="text-white leading-relaxed whitespace-pre-wrap">
+                        {reply.content}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -730,10 +986,9 @@ export default function Forum() {
                 </form>
               </div>
             )}
-          </motion.div>
-        </div>,
-        document.body
-      )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

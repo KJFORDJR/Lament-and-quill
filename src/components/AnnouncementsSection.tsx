@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Megaphone, X, Clock, User, ChevronRight } from 'lucide-react';
-import { createPortal } from 'react-dom';
+import { useReadModal } from '@/hooks/useReadModal';
+import Modal from './Modal';
 
 interface Announcement {
   id: string;
@@ -20,9 +21,8 @@ interface Announcement {
 
 export default function AnnouncementsSection() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
-  const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { isOpen, selectedItem: selectedAnnouncement, openModal, closeModal } = useReadModal<Announcement>();
 
   useEffect(() => {
     fetchAnnouncements();
@@ -43,13 +43,7 @@ export default function AnnouncementsSection() {
   };
 
   const openAnnouncement = (announcement: Announcement) => {
-    setSelectedAnnouncement(announcement);
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedAnnouncement(null);
+    openModal(announcement);
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -170,69 +164,43 @@ export default function AnnouncementsSection() {
         </div>
 
         {/* Announcement Modal */}
-        <AnimatePresence>
-          {showModal && selectedAnnouncement && typeof document !== 'undefined' && createPortal(
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-              onClick={closeModal}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="bg-gothic-charcoal border border-gothic-dark-gray rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Header */}
-                <div className="p-6 border-b border-gothic-dark-gray">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      {selectedAnnouncement.priority > 5 && (
-                        <div className="bg-gothic-red/20 text-gothic-crimson px-2 py-1 rounded text-xs font-bold mb-2 inline-block">
-                          HIGH PRIORITY
-                        </div>
-                      )}
-                      <h2 className="text-2xl font-gothic text-gothic-silver mb-2">
-                        {selectedAnnouncement.title}
-                      </h2>
-                      <div className="flex items-center gap-4 text-sm text-gothic-steel">
-                        <div className="flex items-center">
-                          <User size={14} className="mr-1" />
-                          <span className={`font-medium ${getCityColor(selectedAnnouncement.profiles.city_affiliation)}`}>
-                            {selectedAnnouncement.profiles.username}
-                          </span>
-                        </div>
-                        <div className="flex items-center">
-                          <Clock size={14} className="mr-1" />
-                          {formatTimeAgo(selectedAnnouncement.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={closeModal}
-                      className="text-gothic-steel hover:text-white transition-colors ml-4"
-                    >
-                      <X size={24} />
-                    </button>
+        <Modal
+          isOpen={isOpen}
+          onClose={closeModal}
+          title={selectedAnnouncement?.title || 'Announcement'}
+          theme="silver"
+          size="lg"
+        >
+          <div className="p-6">
+            {selectedAnnouncement && (
+              <>
+                {selectedAnnouncement.priority > 5 && (
+                  <div className="bg-gothic-red/20 text-gothic-crimson px-2 py-1 rounded text-xs font-bold mb-4 inline-block">
+                    HIGH PRIORITY
+                  </div>
+                )}
+                <div className="flex items-center gap-4 text-sm text-gothic-steel mb-6">
+                  <div className="flex items-center">
+                    <User size={14} className="mr-1" />
+                    <span className={`font-medium ${getCityColor(selectedAnnouncement.profiles.city_affiliation)}`}>
+                      {selectedAnnouncement.profiles.username}
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <Clock size={14} className="mr-1" />
+                    {formatTimeAgo(selectedAnnouncement.created_at)}
                   </div>
                 </div>
-
-                {/* Content */}
-                <div className="p-6 overflow-y-auto max-h-[60vh]">
-                  <div className="prose prose-invert max-w-none">
-                    <p className="text-gothic-light leading-relaxed whitespace-pre-wrap">
-                      {selectedAnnouncement.content}
-                    </p>
-                  </div>
+                
+                <div className="prose prose-invert max-w-none">
+                  <p className="text-gothic-light leading-relaxed whitespace-pre-wrap">
+                    {selectedAnnouncement.content}
+                  </p>
                 </div>
-              </motion.div>
-            </motion.div>,
-            document.body
-          )}
-        </AnimatePresence>
+              </>
+            )}
+          </div>
+        </Modal>
       </div>
     </section>
   );

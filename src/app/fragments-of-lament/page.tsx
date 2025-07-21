@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, User, Clock, BookOpen, Eye, X, Heart } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useReadModal } from '@/hooks/useReadModal';
+import { ReadModal } from '@/components/ReadModal';
 
 interface Fragment {
   id: string;
@@ -22,8 +24,7 @@ interface Fragment {
 export default function FragmentsOfLament() {
   const [fragments, setFragments] = useState<Fragment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showReadModal, setShowReadModal] = useState(false);
-  const [readingFragment, setReadingFragment] = useState<Fragment | null>(null);
+  const { isOpen, selectedItem: readingFragment, openModal, closeModal, updateSelectedItem } = useReadModal<Fragment>();
   const [user, setUser] = useState<any>(null);
   const [likingFragments, setLikingFragments] = useState<Set<string>>(new Set());
 
@@ -85,13 +86,7 @@ export default function FragmentsOfLament() {
   };
 
   const readFragment = (fragment: Fragment) => {
-    setReadingFragment(fragment);
-    setShowReadModal(true);
-  };
-
-  const closeReadModal = () => {
-    setShowReadModal(false);
-    setReadingFragment(null);
+    openModal(fragment);
   };
 
   const handleLike = async (fragment: Fragment) => {
@@ -138,7 +133,7 @@ export default function FragmentsOfLament() {
 
         // Also update reading fragment if it's the same one
         if (readingFragment && readingFragment.id === fragment.id) {
-          setReadingFragment(prev => prev ? {
+          updateSelectedItem(prev => prev ? {
             ...prev,
             isLiked: !prev.isLiked,
             likeCount: prev.isLiked ? (prev.likeCount || 0) - 1 : (prev.likeCount || 0) + 1
@@ -336,87 +331,61 @@ export default function FragmentsOfLament() {
       </div>
 
       {/* Read Full Entry Modal */}
-      {showReadModal && readingFragment && (
-        <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[99999]"
-          onClick={closeReadModal}
-          style={{zIndex: 99999}}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-black/95 border border-green-400/30 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'linear-gradient(135deg, rgba(192, 192, 192, 0.1) 0%, rgba(42, 42, 42, 0.95) 100%)'
-            }}
-          >
-            {/* Modal Header */}
-            <div className="p-6 border-b border-green-400/20">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h2 className="text-2xl font-gothic font-bold text-gothic-silver mb-2">
-                    {readingFragment.title}
-                  </h2>
-                  <div className="flex items-center space-x-4 text-sm text-gothic-steel">
-                    <div className="flex items-center space-x-2">
-                      <User size={14} className="text-gothic-silver" />
-                      <span className="text-gothic-silver font-medium">{readingFragment.author_name}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Calendar size={14} />
-                      <span>{new Date(readingFragment.published_at || readingFragment.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Clock size={14} />
-                      <span>{new Date(readingFragment.published_at || readingFragment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <span className="px-2 py-1 text-xs font-tech font-bold bg-green-500/20 text-green-400 rounded-full border border-green-400/30">
-                      {readingFragment.category || 'Neural Transmission'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  {/* Like Button in Modal */}
-                  <button
-                    onClick={() => handleLike(readingFragment)}
-                    disabled={!user || likingFragments.has(readingFragment.id)}
-                    className={`flex items-center space-x-2 px-3 py-2 border rounded-md transition-colors ${
-                      readingFragment.isLiked 
-                        ? 'bg-green-500/20 border-green-400/50 text-green-400' 
-                        : 'bg-green-500/10 hover:bg-green-500/20 border-green-400/30 text-green-400 hover:text-green-300'
-                    } ${!user ? 'opacity-50 cursor-not-allowed' : ''} ${likingFragments.has(readingFragment.id) ? 'opacity-50 cursor-wait' : ''}`}
-                    title={!user ? 'Please log in to like fragments' : readingFragment.isLiked ? 'Unlike this fragment' : 'Like this fragment'}
-                  >
-                    <Heart 
-                      size={16} 
-                      className={readingFragment.isLiked ? 'fill-current' : ''} 
-                    />
-                    <span className="font-tech">{readingFragment.likeCount || 0}</span>
-                  </button>
-                  <button
-                    onClick={closeReadModal}
-                    className="p-2 hover:bg-green-500/10 rounded-lg transition-colors text-gothic-silver hover:text-green-400"
-                    title="Close"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
+      <ReadModal
+        isOpen={isOpen}
+        onClose={closeModal}
+        title={readingFragment?.title || 'Fragment'}
+        theme="silver"
+        size="xl"
+      >
+        {readingFragment && (
+          <>
+            <div className="flex items-center space-x-4 text-sm text-gothic-steel mb-6">
+              <div className="flex items-center space-x-2">
+                <User size={14} className="text-gothic-silver" />
+                <span className="text-gothic-silver font-medium">{readingFragment.author_name}</span>
               </div>
+              <div className="flex items-center space-x-1">
+                <Calendar size={14} />
+                <span>{new Date(readingFragment.published_at || readingFragment.created_at).toLocaleDateString()}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Clock size={14} />
+                <span>{new Date(readingFragment.published_at || readingFragment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <span className="px-2 py-1 text-xs font-tech font-bold bg-green-500/20 text-green-400 rounded-full border border-green-400/30">
+                {readingFragment.category || 'Neural Transmission'}
+              </span>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              <div className="border-l-4 border-green-400/50 pl-6" style={{backgroundColor: 'rgba(42, 42, 42, 0.3)'}}>
-                <p className="text-gothic-silver italic text-lg leading-relaxed font-noir whitespace-pre-wrap">
-                  "{readingFragment.content}"
-                </p>
-              </div>
+            <div className="flex justify-end mb-4">
+              {/* Like Button in Modal */}
+              <button
+                onClick={() => handleLike(readingFragment)}
+                disabled={!user || likingFragments.has(readingFragment.id)}
+                className={`flex items-center space-x-2 px-3 py-2 border rounded-md transition-colors ${
+                  readingFragment.isLiked 
+                    ? 'bg-green-500/20 border-green-400/50 text-green-400' 
+                    : 'bg-green-500/10 hover:bg-green-500/20 border-green-400/30 text-green-400 hover:text-green-300'
+                } ${!user ? 'opacity-50 cursor-not-allowed' : ''} ${likingFragments.has(readingFragment.id) ? 'opacity-50 cursor-wait' : ''}`}
+                title={!user ? 'Please log in to like fragments' : readingFragment.isLiked ? 'Unlike this fragment' : 'Like this fragment'}
+              >
+                <Heart 
+                  size={16} 
+                  className={readingFragment.isLiked ? 'fill-current' : ''} 
+                />
+                <span className="font-tech">{readingFragment.likeCount || 0}</span>
+              </button>
             </div>
-          </motion.div>
-        </div>
-      )}
+
+            <div className="border-l-4 border-green-400/50 pl-6" style={{backgroundColor: 'rgba(42, 42, 42, 0.3)'}}>
+              <p className="text-gothic-silver italic text-lg leading-relaxed font-noir whitespace-pre-wrap">
+                "{readingFragment.content}"
+              </p>
+            </div>
+          </>
+        )}
+      </ReadModal>
     </div>
   );
 }

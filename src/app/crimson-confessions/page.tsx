@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Heart, MessageCircle, Coins, Clock, User, Send, Plus, Eye, EyeOff, X, Calendar } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useReadModal } from '@/hooks/useReadModal';
+import { ReadModal } from '@/components/ReadModal';
 
 interface Confession {
   id: string;
@@ -22,8 +23,7 @@ export default function CrimsonConfessions() {
   const [confessions, setConfessions] = useState<Confession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSubmissionForm, setShowSubmissionForm] = useState(false);
-  const [showReadModal, setShowReadModal] = useState(false);
-  const [readingConfession, setReadingConfession] = useState<Confession | null>(null);
+  const { isOpen, selectedItem: readingConfession, openModal, closeModal } = useReadModal<Confession>();
   const [formData, setFormData] = useState({
     title: '',
     content: ''
@@ -94,13 +94,7 @@ export default function CrimsonConfessions() {
   };
 
   const readConfession = (confession: Confession) => {
-    setReadingConfession(confession);
-    setShowReadModal(true);
-  };
-
-  const closeReadModal = () => {
-    setShowReadModal(false);
-    setReadingConfession(null);
+    openModal(confession);
   };
 
   const getStatusColor = (status: string) => {
@@ -338,71 +332,41 @@ export default function CrimsonConfessions() {
       </div>
 
       {/* Read Full Confession Modal */}
-      {showReadModal && readingConfession && createPortal(
-        <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[99999]"
-          onClick={closeReadModal}
-          style={{zIndex: 99999}}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-black/95 border border-gothic-crimson/30 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'linear-gradient(135deg, rgba(220, 20, 60, 0.1) 0%, rgba(42, 42, 42, 0.95) 100%)'
-            }}
-          >
-            {/* Modal Header */}
-            <div className="p-6 border-b border-gothic-crimson/20">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h2 className="text-2xl font-gothic font-bold text-gothic-silver mb-2">
-                    {readingConfession.title}
-                  </h2>
-                  <div className="flex items-center space-x-4 text-sm text-gothic-steel">
-                    <div className="flex items-center space-x-2">
-                      <User size={14} className="text-gothic-crimson" />
-                      <span className="text-gothic-crimson font-medium">Your Confession</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Calendar size={14} />
-                      <span>{new Date(readingConfession.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Clock size={14} />
-                      <span>{new Date(readingConfession.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <span className={`px-2 py-1 text-xs font-tech font-bold rounded-full border ${getStatusColor(readingConfession.status)}`}>
-                      {readingConfession.status.charAt(0).toUpperCase() + readingConfession.status.slice(1)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={closeReadModal}
-                    className="p-2 hover:bg-gothic-crimson/10 rounded-lg transition-colors text-gothic-silver hover:text-gothic-crimson"
-                    title="Close"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
+      <ReadModal
+        isOpen={isOpen}
+        onClose={closeModal}
+        title={readingConfession?.title || 'Confession'}
+        theme="crimson"
+        size="xl"
+      >
+        {readingConfession && (
+          <>
+            <div className="flex items-center space-x-4 text-sm text-gothic-steel mb-6">
+              <div className="flex items-center space-x-2">
+                <User size={14} className="text-gothic-crimson" />
+                <span className="text-gothic-crimson font-medium">Your Confession</span>
               </div>
+              <div className="flex items-center space-x-1">
+                <Calendar size={14} />
+                <span>{new Date(readingConfession.created_at).toLocaleDateString()}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Clock size={14} />
+                <span>{new Date(readingConfession.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <span className={`px-2 py-1 text-xs font-tech font-bold rounded-full border ${getStatusColor(readingConfession.status)}`}>
+                {readingConfession.status.charAt(0).toUpperCase() + readingConfession.status.slice(1)}
+              </span>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              <div className="border-l-4 border-gothic-crimson/50 pl-6" style={{backgroundColor: 'rgba(42, 42, 42, 0.3)'}}>
-                <p className="text-gothic-silver italic text-lg leading-relaxed font-noir whitespace-pre-wrap">
-                  "{readingConfession.content}"
-                </p>
-              </div>
+            <div className="border-l-4 border-gothic-crimson/50 pl-6" style={{backgroundColor: 'rgba(42, 42, 42, 0.3)'}}>
+              <p className="text-gothic-silver italic text-lg leading-relaxed font-noir whitespace-pre-wrap">
+                "{readingConfession.content}"
+              </p>
             </div>
-          </motion.div>
-        </div>,
-        document.body
-      )}
+          </>
+        )}
+      </ReadModal>
     </div>
   );
 }
