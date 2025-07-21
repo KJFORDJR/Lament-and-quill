@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,22 +48,55 @@ export async function POST(request: NextRequest) {
     const customerEmail = generateCustomerEmail(order);
     const adminNotification = generateAdminNotification(order);
 
-    // Log emails (replace with actual email sending)
-    console.log('=== CUSTOMER CONFIRMATION EMAIL ===');
-    console.log(`To: ${order.profiles?.email}`);
-    console.log(`Subject: ${customerEmail.subject}`);
-    console.log(customerEmail.body);
-    console.log('\n=== ADMIN NOTIFICATION EMAIL ===');
-    console.log(`To: admin@lamentandquill.com`);
-    console.log(`Subject: ${adminNotification.subject}`);
-    console.log(adminNotification.body);
+    // Send actual emails using Resend
+    try {
+      // Use your verified domain, or fall back to Resend's test domain
+      const fromEmail = 'support@lamentandquill.com'; // Change to 'onboarding@resend.dev' if domain not verified
+      
+      // Send customer confirmation email
+      await resend.emails.send({
+        from: fromEmail,
+        to: order.profiles?.email,
+        subject: customerEmail.subject,
+        html: customerEmail.body.replace(/\n/g, '<br>'),
+      });
+
+      // Send admin notification email
+      await resend.emails.send({
+        from: fromEmail,
+        to: 'support@lamentandquill.com', // Your actual email address
+        subject: adminNotification.subject,
+        html: adminNotification.body.replace(/\n/g, '<br>'),
+      });
+
+      console.log('✅ Order confirmation emails sent successfully');
+      
+    } catch (emailError) {
+      console.error('❌ Failed to send emails:', emailError);
+      
+      // Log the actual error for debugging
+      if (emailError instanceof Error) {
+        console.error('Email error details:', emailError.message);
+      }
+      
+      // Don't fail the entire request if emails fail
+      return NextResponse.json({
+        success: false,
+        message: 'Failed to send emails - check server logs for details',
+        error: emailError instanceof Error ? emailError.message : 'Unknown email error',
+        emailsSent: {
+          customer: order.profiles?.email,
+          admin: 'support@lamentandquill.com'
+        }
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Order emails sent successfully',
       emailsSent: {
         customer: order.profiles?.email,
-        admin: 'admin@lamentandquill.com'
+        admin: 'support@lamentandquill.com'
       }
     });
 

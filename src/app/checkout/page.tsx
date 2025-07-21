@@ -196,7 +196,8 @@ export default function CheckoutPage() {
         order_id: order.id,
         merchandise_id: item.merchandise_id,
         quantity: item.quantity,
-        price_at_time: item.merchandise.price,
+        unit_price: item.merchandise.price,
+        total_price: item.merchandise.price * item.quantity,
         merchandise_snapshot: {
           title: item.merchandise.title,
           price: item.merchandise.price,

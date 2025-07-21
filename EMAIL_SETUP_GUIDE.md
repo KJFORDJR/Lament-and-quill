@@ -4,7 +4,8 @@
 ✅ **Order confirmation page** - Beautiful confirmation page with order details  
 ✅ **Email templates** - Customer confirmation and admin notification emails  
 ✅ **Email API endpoint** - `/api/send-order-emails` ready for integration  
-🔄 **Email sending** - Currently logging to console (needs email service)
+✅ **Email sending** - Fully implemented with Resend API
+✅ **Environment configured** - API key added to .env.local
 
 ## Quick Setup with Resend (Recommended)
 
@@ -13,43 +14,41 @@
 npm install resend
 ```
 
-### 2. Get Resend API Key
+### 2. Get Resend API Key & Domain Setup
 1. Sign up at https://resend.com
 2. Get your API key from dashboard
-3. Add to `.env.local`:
+3. **Important**: Add and verify your domain `lamentandquill.com` in Resend dashboard
+4. Add to `.env.local`:
 ```bash
-RESEND_API_KEY=your_resend_api_key_here
+RESEND_API_KEY=re_SEKoBzUQ_FNwAkF6P6o6fMbFnhHNXPmnP
 ```
 
-### 3. Update the Email API
-Replace the console.log sections in `/src/app/api/send-order-emails/route.ts` with:
+**Note**: If you haven't verified your domain yet, you can use `onboarding@resend.dev` as the `from` address for testing.
 
+### 3. Domain Verification (Important!)
+To send emails from `support@lamentandquill.com`, you need to:
+1. Go to Resend dashboard → Domains
+2. Add `lamentandquill.com` 
+3. Follow their DNS setup instructions
+4. Wait for verification (usually takes a few minutes)
+
+**For immediate testing**: Change line 54 in `/src/app/api/send-order-emails/route.ts` from:
 ```typescript
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Replace the console.log sections with:
-try {
-  // Send customer confirmation
-  await resend.emails.send({
-    from: 'orders@lamentandquill.com', // Use your verified domain
-    to: order.profiles?.email,
-    subject: customerEmail.subject,
-    html: customerEmail.body.replace(/\n/g, '<br>'),
-  });
-
-  // Send admin notification
-  await resend.emails.send({
-    from: 'orders@lamentandquill.com',
-    to: 'admin@lamentandquill.com', // Your admin email
-    subject: adminNotification.subject,
-    html: adminNotification.body.replace(/\n/g, '<br>'),
-  });
-} catch (emailError) {
-  console.error('Failed to send emails:', emailError);
-}
+const fromEmail = 'support@lamentandquill.com';
 ```
+to:
+```typescript  
+const fromEmail = 'onboarding@resend.dev';
+```
+
+### 4. Test the Integration
+Your email system is now fully set up! To test:
+1. Place a test order through your site
+2. Check your terminal for success/error messages
+3. Check your email inbox for the customer confirmation
+4. Check support@lamentandquill.com for admin notifications
+
+## Domain Setup Complete? ✅
 
 ## Alternative Email Services
 

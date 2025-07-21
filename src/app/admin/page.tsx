@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Shield, Crown, Cpu, Database, Users, Settings, ShoppingCart } from 'lucide-react';
+import { Shield, Crown, Cpu, Database, Users, Settings, ShoppingCart, Package } from 'lucide-react';
 
 export default function AdminDashboard() {
   const adminSections = [
@@ -29,6 +29,14 @@ export default function AdminDashboard() {
       theme: 'dark',
       icon: ShoppingCart,
       features: ['Product Management', 'Custom Badge Creation', 'Inventory Tracking', 'Price & Image Control']
+    },
+    {
+      title: 'Order Management System',
+      description: 'Complete order fulfillment and transaction oversight for marketplace operations',
+      href: '/admin/orders',
+      theme: 'orders',
+      icon: Package,
+      features: ['Order Processing', 'Payment Tracking', 'Customer Information', 'Fulfillment Status', 'Revenue Analytics']
     }
   ];
 
@@ -58,7 +66,7 @@ export default function AdminDashboard() {
         </motion.div>
 
         {/* Admin Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {adminSections.map((section, index) => {
             const Icon = section.icon;
             return (
@@ -70,6 +78,7 @@ export default function AdminDashboard() {
                 className={`${
                   section.theme === 'crimson' ? 'crimson-theme' : 
                   section.theme === 'silver' ? 'silver-theme' : 
+                  section.theme === 'orders' ? 'gothic-container border-2 border-green-500/30' :
                   'gothic-container'
                 } p-8 rounded-lg tech-border hover:border-opacity-70 transition-all group`}
               >
@@ -77,11 +86,13 @@ export default function AdminDashboard() {
                   <Icon size={48} className={`${
                     section.theme === 'crimson' ? 'text-gothic-crimson' : 
                     section.theme === 'silver' ? 'text-gothic-silver' : 
+                    section.theme === 'orders' ? 'text-green-400' :
                     'text-gothic-steel'
                   } mb-4`} />
                   <h2 className={`text-2xl font-gothic font-bold ${
                     section.theme === 'crimson' ? 'text-gothic-crimson' : 
                     section.theme === 'silver' ? 'text-gothic-silver' : 
+                    section.theme === 'orders' ? 'text-green-400' :
                     'text-gothic-steel'
                   } mb-2`}>
                     {section.title}
@@ -96,6 +107,7 @@ export default function AdminDashboard() {
                   <h3 className={`text-lg font-medium ${
                     section.theme === 'crimson' ? 'text-gothic-crimson' : 
                     section.theme === 'silver' ? 'text-gothic-silver' : 
+                    section.theme === 'orders' ? 'text-green-400' :
                     'text-gothic-steel'
                   } mb-4`}>
                     Core Functions:
@@ -106,6 +118,7 @@ export default function AdminDashboard() {
                         <div className={`w-2 h-2 ${
                           section.theme === 'crimson' ? 'bg-gothic-crimson' : 
                           section.theme === 'silver' ? 'bg-gothic-silver' : 
+                          section.theme === 'orders' ? 'bg-green-400' :
                           'bg-gothic-steel'
                         } rounded-full mr-3`}></div>
                         {feature}
@@ -124,18 +137,23 @@ export default function AdminDashboard() {
                         ? 'bg-gothic-crimson hover:bg-gothic-crimson/80' 
                         : section.theme === 'silver'
                         ? 'bg-gothic-silver hover:bg-gothic-silver/80'
+                        : section.theme === 'orders'
+                        ? 'bg-green-500 hover:bg-green-500/80'
                         : 'bg-gothic-steel hover:bg-gothic-steel/80'
                     } ${
                       section.theme === 'crimson' 
                         ? 'text-white' 
                         : section.theme === 'silver'
                         ? 'text-gothic-black'
+                        : section.theme === 'orders'
+                        ? 'text-white'
                         : 'text-white'
                     } rounded-md font-medium text-center transition-colors cursor-pointer`}
                   >
                     Access {
                       section.theme === 'crimson' ? 'Crimson' : 
                       section.theme === 'silver' ? 'Silver' : 
+                      section.theme === 'orders' ? 'Order' :
                       'Merchandise'
                     } Administration
                   </motion.div>
