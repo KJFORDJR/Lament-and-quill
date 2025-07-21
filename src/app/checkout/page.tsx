@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, CreditCard, Lock, Package, User, MapPin, Mail, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+import StripePayment from '@/components/payments/StripePayment';
 
 interface CartItem {
   id: string;
@@ -57,6 +58,8 @@ export default function CheckoutPage() {
 
   const [paymentMethod, setPaymentMethod] = useState('credit-card');
   const [billingAddressSame, setBillingAddressSame] = useState(true);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentIntentId, setPaymentIntentId] = useState<string>('');
 
   useEffect(() => {
     if (userLoading) return; // Wait for auth to load
@@ -109,20 +112,55 @@ export default function CheckoutPage() {
 
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (paymentMethod === 'credit-card' && !paymentIntentId) {
+      // For Stripe, we'll handle this through the StripePayment component
+      return;
+    }
     setCurrentStep('review');
   };
 
+  const handlePaymentSuccess = (stripePaymentIntentId: string) => {
+    setPaymentIntentId(stripePaymentIntentId);
+    setCurrentStep('review');
+  };
+
+  const handlePaymentError = (error: string) => {
+    alert(`Payment failed: ${error}`);
+    setPaymentProcessing(false);
+  };
+
   const placeOrder = async () => {
-    if (!user) return;
+    if (!user) {
+      alert('Please log in to place an order');
+      router.push('/login');
+      return;
+    }
 
     setProcessing(true);
 
     try {
+      // Check if user session is still valid
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('Session error:', sessionError);
+        alert('Your session has expired. Please log in again.');
+        router.push('/login');
+        return;
+      }
+
       // Generate order number
-      const { data: orderNumber } = await supabase
+      const { data: orderNumber, error: orderNumError } = await supabase
         .rpc('generate_order_number');
 
+      if (orderNumError) {
+        console.error('Order number generation error:', orderNumError);
+        throw new Error(`Failed to generate order number: ${orderNumError.message}`);
+      }
+
       if (!orderNumber) throw new Error('Failed to generate order number');
+
+      console.log('Generated order number:', orderNumber);
 
       // Calculate totals
       const subtotal = cartItems.reduce(
@@ -144,8 +182,9 @@ export default function CheckoutPage() {
           shipping_address: shippingAddress,
           billing_address: billingAddressSame ? shippingAddress : shippingAddress, // For now, same as shipping
           payment_method: paymentMethod,
-          payment_status: 'paid', // In real app, this would be pending until payment processes
-          status: 'processing'
+          payment_status: paymentMethod === 'credit-card' && paymentIntentId ? 'paid' : 'pending',
+          status: 'processing',
+          stripe_payment_intent_id: paymentMethod === 'credit-card' ? paymentIntentId : null
         })
         .select()
         .single();
@@ -191,8 +230,23 @@ export default function CheckoutPage() {
 
       if (clearCartError) throw clearCartError;
 
-      // Redirect to success page
-      router.push(`/order-confirmation/${order.id}`);
+      // Send order confirmation emails
+      try {
+        await fetch('/api/send-order-emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ orderId: order.id }),
+        });
+        console.log('Order confirmation emails sent');
+      } catch (emailError) {
+        console.error('Failed to send confirmation emails:', emailError);
+        // Don't fail the order if emails fail
+      }
+
+      // Redirect to success page with order ID as query parameter
+      router.push(`/order-confirmation?order=${order.id}`);
 
     } catch (error) {
       console.error('Error placing order:', error);
@@ -481,7 +535,7 @@ export default function CheckoutPage() {
                   Payment Method
                 </h2>
                 
-                <form onSubmit={handlePaymentSubmit} className="space-y-6">
+                <div className="space-y-6">
                   <div className="space-y-4">
                     <div className="flex items-center">
                       <input
@@ -514,19 +568,16 @@ export default function CheckoutPage() {
                   </div>
 
                   {paymentMethod === 'credit-card' && (
-                    <div className="space-y-4 p-4 bg-gothic-dark-gray/20 rounded-lg">
-                      <p className="text-gothic-steel text-sm flex items-center">
-                        <Lock size={16} className="mr-2" />
-                        Your payment information is encrypted and secure
-                      </p>
-                      <div className="text-center text-gothic-steel py-8">
-                        <CreditCard size={48} className="mx-auto mb-4 opacity-50" />
-                        <p>Payment processing would be integrated here</p>
-                        <p className="text-xs mt-2">
-                          (Stripe, PayPal, or other payment processor)
-                        </p>
-                      </div>
-                    </div>
+                    <StripePayment
+                      amount={total}
+                      onPaymentSuccess={handlePaymentSuccess}
+                      onPaymentError={handlePaymentError}
+                      onProcessingChange={setPaymentProcessing}
+                      metadata={{
+                        userId: user.id,
+                        orderType: 'merchandise'
+                      }}
+                    />
                   )}
 
                   {paymentMethod === 'crypto' && (
@@ -552,14 +603,17 @@ export default function CheckoutPage() {
                     >
                       Back to Shipping
                     </button>
-                    <button
-                      type="submit"
-                      className="cyber-button flex-1 py-4"
-                    >
-                      Review Order
-                    </button>
+                    {paymentMethod === 'crypto' && (
+                      <button
+                        type="button"
+                        onClick={() => setCurrentStep('review')}
+                        className="cyber-button flex-1 py-4"
+                      >
+                        Review Order
+                      </button>
+                    )}
                   </div>
-                </form>
+                </div>
               </motion.div>
             )}
 
@@ -639,10 +693,12 @@ export default function CheckoutPage() {
                     </button>
                     <button
                       onClick={placeOrder}
-                      disabled={processing}
+                      disabled={processing || (paymentMethod === 'credit-card' && !paymentIntentId)}
                       className="cyber-button flex-1 py-4 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {processing ? 'Processing...' : 'Place Order'}
+                      {processing ? 'Processing...' : 
+                       (paymentMethod === 'credit-card' && !paymentIntentId) ? 'Complete Payment First' : 
+                       'Place Order'}
                     </button>
                   </div>
                 </div>
