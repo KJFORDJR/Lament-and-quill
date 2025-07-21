@@ -36,9 +36,9 @@ interface Order {
   stripe_payment_intent_id?: string;
   user_profile?: {
     id: string;
-    email: string;
-    full_name?: string;
-    username?: string;
+    username: string;
+    display_name?: string;
+    email?: string;
   } | null;
   order_items: Array<{
     id: string;
@@ -92,18 +92,12 @@ export default function OrdersAdmin() {
           stripe_payment_intent_id,
           shipping_address,
           user_id,
-          user_profile:profiles!inner (
-            id,
-            email,
-            full_name,
-            username
-          ),
           order_items (
             id,
             quantity,
             unit_price,
             total_price,
-            merchandise!inner (
+            merchandise (
               title,
               category
             )
@@ -112,7 +106,41 @@ export default function OrdersAdmin() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders((data || []) as unknown as Order[]);
+      
+      console.log('Raw orders data:', data);
+      console.log('Number of orders found:', data?.length || 0);
+      
+      // Now fetch profiles separately and match them
+      const orderData = data || [];
+      const userIds = orderData.map((order: any) => order.user_id);
+      
+      if (userIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, user_role')
+          .in('id', userIds);
+          
+        if (!profilesError) {
+          // Create a map of user profiles
+          const profileMap = new Map();
+          profiles?.forEach(profile => {
+            profileMap.set(profile.id, profile);
+          });
+          
+          // Add profile data to orders and extract email from shipping_address
+          orderData.forEach((order: any) => {
+            const profile = profileMap.get(order.user_id) || {};
+            // Get email from shipping address if available
+            const email = order.shipping_address?.email || null;
+            order.user_profile = {
+              ...profile,
+              email: email
+            };
+          });
+        }
+      }
+      
+      setOrders(orderData as unknown as Order[]);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -205,7 +233,8 @@ export default function OrdersAdmin() {
     const matchesSearch = !searchTerm || 
       order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.user_profile?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.user_profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      order.user_profile?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.user_profile?.display_name?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
@@ -400,7 +429,7 @@ export default function OrdersAdmin() {
                     <td className="py-4 px-6">
                       <div>
                         <div className="text-gothic-silver">
-                          {order.user_profile?.full_name || 'N/A'}
+                          {order.user_profile?.display_name || order.user_profile?.username || 'N/A'}
                         </div>
                         <div className="text-gothic-steel text-sm">
                           {order.user_profile?.email || 'N/A'}
@@ -499,7 +528,7 @@ export default function OrdersAdmin() {
                     <h3 className="text-lg font-medium text-gothic-silver mb-3">Customer</h3>
                     <div className="space-y-2">
                       <p className="text-gothic-steel">
-                        <span className="font-medium">Name:</span> {selectedOrder.user_profile?.full_name || 'N/A'}
+                        <span className="font-medium">Name:</span> {selectedOrder.user_profile?.display_name || selectedOrder.user_profile?.username || 'N/A'}
                       </p>
                       <p className="text-gothic-steel">
                         <span className="font-medium">Email:</span> {selectedOrder.user_profile?.email || 'N/A'}
