@@ -8,6 +8,7 @@ import {
   Settings, MessageCircle, FileText, Shield, BookOpen, Database, X, User, Calendar, Clock, Megaphone 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import Modal from '@/components/Modal';
 
 interface CrimsonEntry {
   id: string;
@@ -827,12 +828,21 @@ export default function AdminCrimson() {
     }
 
     try {
+      // Get current user for authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const response = await fetch('/api/announcements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newAnnouncement),
+        body: JSON.stringify({
+          ...newAnnouncement,
+          author_id: user.id
+        }),
       });
 
       const result = await response.json();
@@ -859,6 +869,12 @@ export default function AdminCrimson() {
     }
 
     try {
+      // Get current user for authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const response = await fetch(`/api/announcements/${editingAnnouncement.id}`, {
         method: 'PUT',
         headers: {
@@ -868,7 +884,8 @@ export default function AdminCrimson() {
           title: editingAnnouncement.title,
           content: editingAnnouncement.content,
           priority: editingAnnouncement.priority,
-          is_active: editingAnnouncement.is_active
+          is_active: editingAnnouncement.is_active,
+          author_id: user.id
         }),
       });
 
@@ -893,7 +910,13 @@ export default function AdminCrimson() {
     if (!confirm('Are you sure you want to delete this announcement?')) return;
 
     try {
-      const response = await fetch(`/api/announcements/${id}`, {
+      // Get current user for authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`/api/announcements/${id}?author_id=${user.id}`, {
         method: 'DELETE',
       });
 
@@ -1472,127 +1495,130 @@ export default function AdminCrimson() {
       </div>
 
       {/* Edit Modal */}
-      {showEditModal && editingItem && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[99999] backdrop-blur-sm" style={{zIndex: 99999}}>
-          <div className="bg-gothic-charcoal border-2 border-gothic-crimson rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl" style={{backgroundColor: '#2a2a2a'}}>
-            <h3 className="text-xl font-gothic text-gothic-silver mb-4">
-              {editingItem.summary ? 'Edit Dossier Entry' : 'Edit Entry'}
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gothic-steel text-sm font-medium mb-1">Title</label>
-                <input
-                  type="text"
-                  value={editingItem.title}
-                  onChange={(e) => setEditingItem({...editingItem, title: e.target.value})}
-                  className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
-                />
-              </div>
-
-              {editingItem.summary !== undefined && (
-                <>
-                  <div>
-                    <label className="block text-gothic-steel text-sm font-medium mb-1">Summary</label>
-                    <textarea
-                      value={editingItem.summary}
-                      onChange={(e) => setEditingItem({...editingItem, summary: e.target.value})}
-                      rows={3}
-                      className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-gothic-steel text-sm font-medium mb-1">Type</label>
-                      <select
-                        value={editingItem.type}
-                        onChange={(e) => setEditingItem({...editingItem, type: e.target.value})}
-                        className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
-                      >
-                        <option value="character">Character</option>
-                        <option value="location">Location</option>
-                        <option value="event">Event</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-gothic-steel text-sm font-medium mb-1">City</label>
-                      <select
-                        value={editingItem.city}
-                        onChange={(e) => setEditingItem({...editingItem, city: e.target.value})}
-                        className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
-                      >
-                        <option value="crimson">Crimson City</option>
-                        <option value="silver">Silver Heights</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-gothic-steel text-sm font-medium mb-1">Classification</label>
-                      <select
-                        value={editingItem.classification}
-                        onChange={(e) => setEditingItem({...editingItem, classification: e.target.value})}
-                        className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
-                      >
-                        <option value="public">Public</option>
-                        <option value="confidential">Confidential</option>
-                        <option value="secret">Secret</option>
-                        <option value="top-secret">Top Secret</option>
-                      </select>
-                    </div>
-                  </div>
-                </>
-              )}
-              
-              <div>
-                <label className="block text-gothic-steel text-sm font-medium mb-1">Content</label>
-                <textarea
-                  value={editingItem.content}
-                  onChange={(e) => setEditingItem({...editingItem, content: e.target.value})}
-                  rows={8}
-                  className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
-                />
-              </div>
-
-              {editingItem.summary === undefined && (
-                <>
-                  <div>
-                    <label className="block text-gothic-steel text-sm font-medium mb-1">Author Name</label>
-                    <input
-                      type="text"
-                      value={editingItem.author_name}
-                      onChange={(e) => setEditingItem({...editingItem, author_name: e.target.value})}
-                      className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-gothic-steel text-sm font-medium mb-1">Category</label>
-                    <input
-                      type="text"
-                      value={editingItem.category}
-                      onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
-                      className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
-                    />
-                  </div>
-                </>
-              )}
-              
-              <div>
-                <label className="block text-gothic-steel text-sm font-medium mb-1">Status</label>
-                <select
-                  value={editingItem.is_published ? 'published' : 'draft'}
-                  onChange={(e) => setEditingItem({...editingItem, is_published: e.target.value === 'published'})}
-                  className="bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
-                >
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
-                </select>
-              </div>
+      <Modal
+        isOpen={showEditModal && !!editingItem}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingItem(null);
+        }}
+        title={editingItem?.summary ? 'Edit Dossier Entry' : 'Edit Entry'}
+        theme="crimson"
+        size="lg"
+      >
+        <div className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-gothic-steel text-sm font-medium mb-1">Title</label>
+              <input
+                type="text"
+                value={editingItem?.title || ''}
+                onChange={(e) => setEditingItem({...editingItem, title: e.target.value})}
+                className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
+              />
             </div>
+
+            {editingItem?.summary !== undefined && (
+              <>
+                <div>
+                  <label className="block text-gothic-steel text-sm font-medium mb-1">Summary</label>
+                  <textarea
+                    value={editingItem.summary || ''}
+                    onChange={(e) => setEditingItem({...editingItem, summary: e.target.value})}
+                    rows={3}
+                    className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-gothic-steel text-sm font-medium mb-1">Type</label>
+                    <select
+                      value={editingItem.type || ''}
+                      onChange={(e) => setEditingItem({...editingItem, type: e.target.value})}
+                      className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
+                    >
+                      <option value="character">Character</option>
+                      <option value="location">Location</option>
+                      <option value="event">Event</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gothic-steel text-sm font-medium mb-1">City</label>
+                    <select
+                      value={editingItem.city || ''}
+                      onChange={(e) => setEditingItem({...editingItem, city: e.target.value})}
+                      className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
+                    >
+                      <option value="crimson">Crimson City</option>
+                      <option value="silver">Silver Heights</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gothic-steel text-sm font-medium mb-1">Classification</label>
+                    <select
+                      value={editingItem.classification || ''}
+                      onChange={(e) => setEditingItem({...editingItem, classification: e.target.value})}
+                      className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
+                    >
+                      <option value="public">Public</option>
+                      <option value="confidential">Confidential</option>
+                      <option value="secret">Secret</option>
+                      <option value="top-secret">Top Secret</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
             
-            <div className="flex justify-end space-x-4 mt-6">
+            <div>
+              <label className="block text-gothic-steel text-sm font-medium mb-1">Content</label>
+              <textarea
+                value={editingItem?.content || ''}
+                onChange={(e) => setEditingItem({...editingItem, content: e.target.value})}
+                rows={8}
+                className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
+              />
+            </div>
+
+            {editingItem?.summary === undefined && (
+              <>
+                <div>
+                  <label className="block text-gothic-steel text-sm font-medium mb-1">Author Name</label>
+                  <input
+                    type="text"
+                    value={editingItem?.author_name || ''}
+                    onChange={(e) => setEditingItem({...editingItem, author_name: e.target.value})}
+                    className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-gothic-steel text-sm font-medium mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={editingItem?.category || ''}
+                    onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
+                    className="w-full bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
+                  />
+                </div>
+              </>
+            )}
+            
+            <div>
+              <label className="block text-gothic-steel text-sm font-medium mb-1">Status</label>
+              <select
+                value={editingItem?.is_published ? 'published' : 'draft'}
+                onChange={(e) => setEditingItem({...editingItem, is_published: e.target.value === 'published'})}
+                className="bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-3 py-2"
+              >
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end space-x-4 pt-4">
               <button
                 onClick={() => {setShowEditModal(false); setEditingItem(null);}}
                 className="px-4 py-2 text-gothic-steel hover:text-gothic-silver"
@@ -1600,7 +1626,7 @@ export default function AdminCrimson() {
                 Cancel
               </button>
               <button
-                onClick={editingItem.summary !== undefined ? updateDossierEntry : saveEntryEdit}
+                onClick={editingItem?.summary !== undefined ? updateDossierEntry : saveEntryEdit}
                 className="px-4 py-2 bg-gothic-crimson text-white rounded hover:bg-gothic-crimson/80"
               >
                 Save Changes
@@ -1608,7 +1634,7 @@ export default function AdminCrimson() {
             </div>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Create Modal */}
       {showCreateModal && (
@@ -1890,7 +1916,7 @@ export default function AdminCrimson() {
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
               <div className="border-l-4 border-gothic-crimson/50 pl-6" style={{backgroundColor: 'rgba(42, 42, 42, 0.3)'}}>
                 <p className="text-gothic-silver italic text-lg leading-relaxed font-noir whitespace-pre-wrap">
-                  "                  &ldquo;{readingConfession.content}&rdquo;"
+                  &ldquo;{readingConfession.content}&rdquo;
                 </p>
               </div>
               

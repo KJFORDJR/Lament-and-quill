@@ -5,9 +5,10 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { 
   Plus, Edit3, Trash2, Eye, Users, BarChart3, 
-  Settings, MessageCircle, FileText, Shield, BookOpen, Database 
+  Settings, MessageCircle, FileText, Shield, BookOpen, Database, Megaphone 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import Modal from '@/components/Modal';
 
 interface LamentFragment {
   id: string;
@@ -39,6 +40,22 @@ interface UserProfile {
   created_at: string;
 }
 
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  author_id: string;
+  priority: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  profiles: {
+    username: string;
+    city_affiliation: string;
+    user_role: string;
+  };
+}
+
 interface DossierEntry {
   id: string;
   title: string;
@@ -58,6 +75,7 @@ export default function AdminSilver() {
   const [lamentSubmissions, setLamentSubmissions] = useState<LamentSubmission[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [dossierEntries, setDossierEntries] = useState<DossierEntry[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'tips'>('date');
@@ -74,12 +92,24 @@ export default function AdminSilver() {
   const [editingDossier, setEditingDossier] = useState<any>(null);
   const [readingDossier, setReadingDossier] = useState<any>(null);
   
+  // Announcements modal states
+  const [showAnnouncementCreateModal, setShowAnnouncementCreateModal] = useState(false);
+  const [showAnnouncementEditModal, setShowAnnouncementEditModal] = useState(false);
+  const [showAnnouncementReadModal, setShowAnnouncementReadModal] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null);
+  const [readingAnnouncement, setReadingAnnouncement] = useState<any>(null);
+  
   const [readingFragment, setReadingFragment] = useState<LamentFragment | null>(null);
   const [newFragment, setNewFragment] = useState({
     title: '',
     content: '',
     author_name: 'Admin',
     category: 'System Messages'
+  });
+  const [newAnnouncement, setNewAnnouncement] = useState({
+    title: '',
+    content: '',
+    priority: 0
   });
   const [newDossier, setNewDossier] = useState({
     title: '',
@@ -181,6 +211,21 @@ export default function AdminSilver() {
         console.log('Dossier entries loaded via API:', result.data?.length || 0);
         setDossierEntries(result.data || []);
       }
+
+      if (activeTab === 'announcements') {
+        console.log('Loading announcements via API...');
+        
+        const response = await fetch('/api/announcements');
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.error('Announcements loading API error:', result);
+          throw new Error(result.error || 'Failed to load announcements');
+        }
+        
+        console.log('Announcements loaded via API:', result.data?.length || 0);
+        setAnnouncements(result.data || []);
+      }
     } catch (err: any) {
       console.error('Error loading data:', err);
       setError(err.message);
@@ -193,6 +238,7 @@ export default function AdminSilver() {
     { id: 'dashboard', label: 'Neural Dashboard', icon: BarChart3 },
     { id: 'fragments', label: 'Lament Fragments', icon: BookOpen },
     { id: 'submissions', label: 'Neural Reports', icon: MessageCircle },
+    { id: 'announcements', label: 'Nexus Announcements', icon: Megaphone },
     { id: 'dossier', label: 'Data Archives', icon: Database },
     { id: 'users', label: 'Consciousness Registry', icon: Users },
     { id: 'settings', label: 'System Parameters', icon: Settings }
@@ -808,6 +854,123 @@ export default function AdminSilver() {
     }
   };
 
+  // Announcement functions
+  const createAnnouncement = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!newAnnouncement.title.trim() || !newAnnouncement.content.trim()) {
+      alert('Title and content are required');
+      return;
+    }
+
+    try {
+      // Get current user for authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch('/api/announcements', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...newAnnouncement,
+          author_id: user.id
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Create announcement API error:', result);
+        throw new Error(result.error || 'Failed to create announcement');
+      }
+
+      console.log('Announcement created successfully:', result);
+      setNewAnnouncement({ title: '', content: '', priority: 0 });
+      setShowAnnouncementCreateModal(false);
+      loadData();
+    } catch (err: any) {
+      console.error('Create announcement error:', err);
+      alert(`Error creating announcement: ${err.message}`);
+    }
+  };
+
+  const updateAnnouncement = async () => {
+    if (!editingAnnouncement || !editingAnnouncement.title.trim() || !editingAnnouncement.content.trim()) {
+      alert('Title and content are required');
+      return;
+    }
+
+    try {
+      // Get current user to pass author_id for admin verification
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`/api/announcements/${editingAnnouncement.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: editingAnnouncement.title,
+          content: editingAnnouncement.content,
+          priority: editingAnnouncement.priority,
+          is_active: editingAnnouncement.is_active,
+          author_id: user.id
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Update announcement API error:', result);
+        throw new Error(result.error || 'Failed to update announcement');
+      }
+
+      console.log('Announcement updated successfully:', result);
+      setEditingAnnouncement(null);
+      setShowAnnouncementEditModal(false);
+      loadData();
+    } catch (err: any) {
+      console.error('Update announcement error:', err);
+      alert(`Error updating announcement: ${err.message}`);
+    }
+  };
+
+  const deleteAnnouncement = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this announcement?')) return;
+
+    try {
+      // Get current user for authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`/api/announcements/${id}?author_id=${user.id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Delete announcement API error:', result);
+        throw new Error(result.error || 'Failed to delete announcement');
+      }
+
+      console.log('Announcement deleted successfully:', result);
+      loadData();
+    } catch (err: any) {
+      console.error('Delete announcement error:', err);
+      alert(`Error deleting announcement: ${err.message}`);
+    }
+  };
+
   // Sorting function for submissions
   const getSortedSubmissions = () => {
     if (!lamentSubmissions) return [];
@@ -1060,6 +1223,103 @@ export default function AdminSilver() {
     </div>
   );
 
+  const renderAnnouncements = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-gothic font-bold text-gothic-silver">Nexus Announcements</h2>
+        <button
+          onClick={() => setShowAnnouncementCreateModal(true)}
+          className="flex items-center space-x-2 bg-gothic-silver hover:bg-gray-300 text-gothic-charcoal px-4 py-2 rounded transition-colors"
+        >
+          <Plus size={20} />
+          <span>New Announcement</span>
+        </button>
+      </div>
+
+      <div className="silver-theme p-6 rounded-lg tech-border">
+        {loading && (
+          <div className="text-center py-8">
+            <div className="text-gothic-silver">Loading announcements...</div>
+          </div>
+        )}
+
+        {error && (
+          <div className="text-center py-8 text-red-400">
+            <p>Error loading announcements: {error}</p>
+          </div>
+        )}
+
+        <div className="grid gap-4">
+          {announcements.map((announcement) => (
+            <div key={announcement.id} className="bg-gothic-dark-gray/30 p-4 rounded">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h3 className="text-gothic-silver font-medium">{announcement.title}</h3>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      announcement.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
+                    }`}>
+                      {announcement.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      announcement.priority >= 3 ? 'bg-red-500/20 text-red-400' 
+                      : announcement.priority >= 1 ? 'bg-yellow-500/20 text-yellow-400'
+                      : 'bg-blue-500/20 text-blue-400'
+                    }`}>
+                      Priority: {announcement.priority}
+                    </span>
+                  </div>
+                  <p className="text-gothic-steel text-sm mb-3 line-clamp-3">{announcement.content}</p>
+                  <div className="flex items-center space-x-4 text-xs text-gothic-steel">
+                    <span>By: {announcement.profiles.username}</span>
+                    <span>Created: {new Date(announcement.created_at).toLocaleDateString()}</span>
+                    <span>Updated: {new Date(announcement.updated_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div className="flex space-x-2 ml-4">
+                  <button
+                    onClick={() => {
+                      setReadingAnnouncement(announcement);
+                      setShowAnnouncementReadModal(true);
+                    }}
+                    className="text-gothic-steel hover:text-blue-400 text-sm"
+                  >
+                    <Eye size={14} className="inline mr-1" />
+                    View
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingAnnouncement(announcement);
+                      setShowAnnouncementEditModal(true);
+                    }}
+                    className="text-gothic-steel hover:text-yellow-400 text-sm"
+                  >
+                    <Edit3 size={14} className="inline mr-1" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => deleteAnnouncement(announcement.id)}
+                    className="text-gothic-steel hover:text-red-400 text-sm"
+                  >
+                    <Trash2 size={14} className="inline mr-1" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {announcements.length === 0 && !loading && (
+            <div className="silver-theme p-8 rounded-lg tech-border text-center">
+              <Megaphone size={48} className="mx-auto text-gothic-silver mb-4" />
+              <h3 className="text-xl font-gothic text-gothic-silver mb-2">No Announcements</h3>
+              <p className="text-gothic-steel">No announcements found. Create one to notify all users!</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   const renderDossier = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1233,6 +1493,7 @@ export default function AdminSilver() {
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'fragments' && renderFragments()}
           {activeTab === 'submissions' && renderSubmissions()}
+          {activeTab === 'announcements' && renderAnnouncements()}
           {activeTab === 'dossier' && renderDossier()}
           {activeTab === 'users' && renderUsers()}
           {activeTab === 'settings' && (
@@ -1266,13 +1527,15 @@ export default function AdminSilver() {
       </div>
 
       {/* Edit Modal */}
-      {showEditModal && editingItem && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[99999] backdrop-blur-sm" style={{zIndex: 99999}}>
-          <div className="bg-gothic-charcoal border-2 border-gothic-silver rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl" style={{backgroundColor: '#2a2a2a'}}>
-            <h3 className="text-xl font-gothic text-gothic-silver mb-4">
-              {editingItem.summary ? 'Edit Dossier Entry' : 'Edit Fragment'}
-            </h3>
-            
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => {setShowEditModal(false); setEditingItem(null);}}
+        title={editingItem?.summary ? 'Edit Dossier Entry' : 'Edit Fragment'}
+        theme="silver"
+        size="lg"
+      >
+        {editingItem && (
+          <div className="p-6">
             <div className="space-y-4">
               <div>
                 <label className="block text-gothic-steel text-sm font-medium mb-1">Title</label>
@@ -1401,187 +1664,188 @@ export default function AdminSilver() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[99999] backdrop-blur-sm" style={{zIndex: 99999}}>
-          <div className="bg-gothic-charcoal border-2 border-gothic-silver rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto shadow-2xl" style={{backgroundColor: '#2a2a2a'}}>
-            <h3 className="text-xl font-gothic text-gothic-silver mb-4">
-              {activeTab === 'dossier' ? 'Create New Dossier Entry' : 'Create New Lament Fragment'}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gothic-steel mb-2">Title</label>
-                <input
-                  type="text"
-                  value={activeTab === 'dossier' ? newDossier.title : newFragment.title}
-                  onChange={(e) => activeTab === 'dossier' 
-                    ? setNewDossier({...newDossier, title: e.target.value})
-                    : setNewFragment({...newFragment, title: e.target.value})
-                  }
-                  className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
-                  style={{backgroundColor: '#1a1a1a'}}
-                  placeholder="Enter entry title..."
-                />
-              </div>
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => {
+          setShowCreateModal(false); 
+          setNewFragment({title: '', content: '', author_name: 'Admin', category: 'System Messages'});
+          setNewDossier({title: '', summary: '', content: '', type: 'character', city: 'silver', classification: 'public', is_published: true});
+        }}
+        title={activeTab === 'dossier' ? 'Create New Dossier Entry' : 'Create New Lament Fragment'}
+        theme="silver"
+        size="lg"
+      >
+        <div className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-gothic-steel mb-2">Title</label>
+              <input
+                type="text"
+                value={activeTab === 'dossier' ? newDossier.title : newFragment.title}
+                onChange={(e) => activeTab === 'dossier' 
+                  ? setNewDossier({...newDossier, title: e.target.value})
+                  : setNewFragment({...newFragment, title: e.target.value})
+                }
+                className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
+                style={{backgroundColor: '#1a1a1a'}}
+                placeholder="Enter entry title..."
+              />
+            </div>
 
-              {activeTab === 'dossier' && (
-                <>
+            {activeTab === 'dossier' && (
+              <>
+                <div>
+                  <label className="block text-gothic-steel mb-2">Summary</label>
+                  <textarea
+                    value={newDossier.summary}
+                    onChange={(e) => setNewDossier({...newDossier, summary: e.target.value})}
+                    className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50 h-24 resize-none"
+                    style={{backgroundColor: '#1a1a1a'}}
+                    placeholder="Enter entry summary..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-gothic-steel mb-2">Summary</label>
-                    <textarea
-                      value={newDossier.summary}
-                      onChange={(e) => setNewDossier({...newDossier, summary: e.target.value})}
-                      className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50 h-24 resize-none"
-                      style={{backgroundColor: '#1a1a1a'}}
-                      placeholder="Enter entry summary..."
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-gothic-steel mb-2">Type</label>
-                      <select
-                        value={newDossier.type}
-                        onChange={(e) => setNewDossier({...newDossier, type: e.target.value as any})}
-                        className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
-                        style={{backgroundColor: '#1a1a1a'}}
-                      >
-                        <option value="character">Character</option>
-                        <option value="location">Location</option>
-                        <option value="event">Event</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-gothic-steel mb-2">City</label>
-                      <select
-                        value={newDossier.city}
-                        onChange={(e) => setNewDossier({...newDossier, city: e.target.value as any})}
-                        className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
-                        style={{backgroundColor: '#1a1a1a'}}
-                      >
-                        <option value="crimson">Crimson City</option>
-                        <option value="silver">Silver Heights</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-gothic-steel mb-2">Classification</label>
-                      <select
-                        value={newDossier.classification}
-                        onChange={(e) => setNewDossier({...newDossier, classification: e.target.value as any})}
-                        className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
-                        style={{backgroundColor: '#1a1a1a'}}
-                      >
-                        <option value="public">Public</option>
-                        <option value="confidential">Confidential</option>
-                        <option value="secret">Secret</option>
-                        <option value="top-secret">Top Secret</option>
-                      </select>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="block text-gothic-steel mb-2">Content</label>
-                <textarea
-                  value={activeTab === 'dossier' ? newDossier.content : newFragment.content}
-                  onChange={(e) => activeTab === 'dossier' 
-                    ? setNewDossier({...newDossier, content: e.target.value})
-                    : setNewFragment({...newFragment, content: e.target.value})
-                  }
-                  className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50 h-32 resize-none"
-                  style={{backgroundColor: '#1a1a1a'}}
-                  placeholder={activeTab === 'dossier' ? "Enter detailed dossier content..." : "Enter fragment content..."}
-                />
-              </div>
-
-              {activeTab !== 'dossier' && (
-                <>
-                  <div>
-                    <label className="block text-gothic-steel mb-2">Author</label>
-                    <input
-                      type="text"
-                      value={newFragment.author_name}
-                      onChange={(e) => setNewFragment({...newFragment, author_name: e.target.value})}
-                      className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
-                      style={{backgroundColor: '#1a1a1a'}}
-                      placeholder="Author name..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gothic-steel mb-2">Category</label>
+                    <label className="block text-gothic-steel mb-2">Type</label>
                     <select
-                      value={newFragment.category}
-                      onChange={(e) => setNewFragment({...newFragment, category: e.target.value})}
+                      value={newDossier.type}
+                      onChange={(e) => setNewDossier({...newDossier, type: e.target.value as any})}
                       className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
                       style={{backgroundColor: '#1a1a1a'}}
                     >
-                      <option value="System Messages">System Messages</option>
-                      <option value="Neural Transmissions">Neural Transmissions</option>
-                      <option value="Data Fragments">Data Fragments</option>
-                      <option value="Archive Entries">Archive Entries</option>
+                      <option value="character">Character</option>
+                      <option value="location">Location</option>
+                      <option value="event">Event</option>
                     </select>
                   </div>
-                </>
-              )}
+                  
+                  <div>
+                    <label className="block text-gothic-steel mb-2">City</label>
+                    <select
+                      value={newDossier.city}
+                      onChange={(e) => setNewDossier({...newDossier, city: e.target.value as any})}
+                      className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
+                      style={{backgroundColor: '#1a1a1a'}}
+                    >
+                      <option value="crimson">Crimson City</option>
+                      <option value="silver">Silver Heights</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gothic-steel mb-2">Classification</label>
+                    <select
+                      value={newDossier.classification}
+                      onChange={(e) => setNewDossier({...newDossier, classification: e.target.value as any})}
+                      className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
+                      style={{backgroundColor: '#1a1a1a'}}
+                    >
+                      <option value="public">Public</option>
+                      <option value="confidential">Confidential</option>
+                      <option value="secret">Secret</option>
+                      <option value="top-secret">Top Secret</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-gothic-steel mb-2">Content</label>
+              <textarea
+                value={activeTab === 'dossier' ? newDossier.content : newFragment.content}
+                onChange={(e) => activeTab === 'dossier' 
+                  ? setNewDossier({...newDossier, content: e.target.value})
+                  : setNewFragment({...newFragment, content: e.target.value})
+                }
+                className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50 h-32 resize-none"
+                style={{backgroundColor: '#1a1a1a'}}
+                placeholder={activeTab === 'dossier' ? "Enter detailed dossier content..." : "Enter fragment content..."}
+              />
             </div>
-            <div className="flex space-x-4 mt-6">
-              <button
-                onClick={() => {
-                  setShowCreateModal(false); 
-                  setNewFragment({title: '', content: '', author_name: 'Admin', category: 'System Messages'});
-                  setNewDossier({title: '', summary: '', content: '', type: 'character', city: 'silver', classification: 'public', is_published: true});
-                }}
-                className="px-4 py-2 text-gothic-steel rounded hover:opacity-80"
-                style={{backgroundColor: '#1a1a1a', border: '1px solid #708090'}}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={activeTab === 'dossier' ? createDossierEntry : createNewFragment}
-                className="px-4 py-2 bg-gothic-silver text-gothic-black rounded hover:bg-gothic-silver/80"
-              >
-                {activeTab === 'dossier' ? 'Create Dossier Entry' : 'Create Fragment'}
-              </button>
-            </div>
+
+            {activeTab !== 'dossier' && (
+              <>
+                <div>
+                  <label className="block text-gothic-steel mb-2">Author</label>
+                  <input
+                    type="text"
+                    value={newFragment.author_name}
+                    onChange={(e) => setNewFragment({...newFragment, author_name: e.target.value})}
+                    className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
+                    style={{backgroundColor: '#1a1a1a'}}
+                    placeholder="Author name..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-gothic-steel mb-2">Category</label>
+                  <select
+                    value={newFragment.category}
+                    onChange={(e) => setNewFragment({...newFragment, category: e.target.value})}
+                    className="w-full p-3 border border-gothic-silver/30 rounded text-gothic-silver focus:border-gothic-silver/50"
+                    style={{backgroundColor: '#1a1a1a'}}
+                  >
+                    <option value="System Messages">System Messages</option>
+                    <option value="Neural Transmissions">Neural Transmissions</option>
+                    <option value="Data Fragments">Data Fragments</option>
+                    <option value="Archive Entries">Archive Entries</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="flex space-x-4 mt-6">
+            <button
+              onClick={() => {
+                setShowCreateModal(false); 
+                setNewFragment({title: '', content: '', author_name: 'Admin', category: 'System Messages'});
+                setNewDossier({title: '', summary: '', content: '', type: 'character', city: 'silver', classification: 'public', is_published: true});
+              }}
+              className="px-4 py-2 text-gothic-steel rounded hover:opacity-80"
+              style={{backgroundColor: '#1a1a1a', border: '1px solid #708090'}}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={activeTab === 'dossier' ? createDossierEntry : createNewFragment}
+              className="px-4 py-2 bg-gothic-silver text-gothic-black rounded hover:bg-gothic-silver/80"
+            >
+              {activeTab === 'dossier' ? 'Create Dossier Entry' : 'Create Fragment'}
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Read Fragment Modal */}
-      {showReadModal && readingFragment && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[99999] backdrop-blur-sm" style={{zIndex: 99999}}>
-          <div className="bg-gothic-charcoal border-2 border-gothic-silver rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto shadow-2xl" style={{backgroundColor: '#2a2a2a'}}>
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex-1">
-                <h2 className="text-2xl font-gothic font-bold text-gothic-silver mb-2">{readingFragment.title}</h2>
-                <div className="flex items-center space-x-4 text-sm text-gothic-steel mb-4">
-                  <span>By {readingFragment.author_name}</span>
-                  <span>•</span>
-                  <span>{new Date(readingFragment.created_at).toLocaleDateString()}</span>
-                  <span>•</span>
-                  <span className="px-2 py-1 rounded text-xs bg-gothic-steel/20">
-                    {readingFragment.category}
-                  </span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    readingFragment.is_published ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {readingFragment.is_published ? 'published' : 'draft'}
-                  </span>
-                </div>
+      <Modal
+        isOpen={showReadModal && !!readingFragment}
+        onClose={() => {setShowReadModal(false); setReadingFragment(null);}}
+        title={readingFragment?.title || ''}
+        theme="silver"
+        size="xl"
+      >
+        {readingFragment && (
+          <div className="p-6">
+            <div className="mb-6">
+              <div className="flex items-center space-x-4 text-sm text-gothic-steel mb-4">
+                <span>By {readingFragment.author_name}</span>
+                <span>•</span>
+                <span>{new Date(readingFragment.created_at).toLocaleDateString()}</span>
+                <span>•</span>
+                <span className="px-2 py-1 rounded text-xs bg-gothic-steel/20">
+                  {readingFragment.category}
+                </span>
+                <span className={`px-2 py-1 rounded text-xs ${
+                  readingFragment.is_published ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                }`}>
+                  {readingFragment.is_published ? 'published' : 'draft'}
+                </span>
               </div>
-              <button
-                onClick={() => {setShowReadModal(false); setReadingFragment(null);}}
-                className="text-gothic-steel hover:text-gothic-silver text-2xl font-bold ml-4"
-                title="Close"
-              >
-                ×
-              </button>
             </div>
             
             <div className="prose prose-invert max-w-none">
@@ -1612,167 +1876,145 @@ export default function AdminSilver() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Dossier Create Modal */}
-      {showDossierCreateModal && createPortal(
-        <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" 
-          style={{ zIndex: 999999 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowDossierCreateModal(false);
-            }
-          }}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-gothic-charcoal rounded-lg border border-gothic-silver shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
-            style={{ zIndex: 999999 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center p-6 border-b border-gothic-steel/30">
-              <h2 className="text-2xl font-gothic font-bold text-gothic-silver">Create New Data Archive Entry</h2>
+      {/* Dossier Create Modal */}
+      <Modal
+        isOpen={showDossierCreateModal}
+        onClose={() => setShowDossierCreateModal(false)}
+        title="Create New Data Archive Entry"
+        theme="silver"
+        size="lg"
+      >
+        <div className="p-6">
+          <form className="space-y-4" onSubmit={(e) => {
+            e.preventDefault();
+            createDossierEntry();
+          }}>
+            <div>
+              <label className="block text-sm font-medium text-gothic-silver mb-2">
+                Title *
+              </label>
+              <input
+                type="text"
+                value={newDossier.title}
+                onChange={(e) => setNewDossier({ ...newDossier, title: e.target.value })}
+                className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
+                placeholder="Enter dossier title..."
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gothic-silver mb-2">
+                Summary *
+              </label>
+              <input
+                type="text"
+                value={newDossier.summary}
+                onChange={(e) => setNewDossier({ ...newDossier, summary: e.target.value })}
+                className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
+                placeholder="Brief summary..."
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gothic-silver mb-2">
+                Content *
+              </label>
+              <textarea
+                value={newDossier.content}
+                onChange={(e) => setNewDossier({ ...newDossier, content: e.target.value })}
+                className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none h-32 resize-none"
+                placeholder="Detailed content..."
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gothic-silver mb-2">
+                  Type *
+                </label>
+                <select
+                  value={newDossier.type}
+                  onChange={(e) => setNewDossier({ ...newDossier, type: e.target.value as any })}
+                  className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
+                  required
+                >
+                  <option value="character">Character</option>
+                  <option value="location">Location</option>
+                  <option value="event">Event</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gothic-silver mb-2">
+                  City *
+                </label>
+                <select
+                  value={newDossier.city}
+                  onChange={(e) => setNewDossier({ ...newDossier, city: e.target.value as any })}
+                  className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
+                  required
+                >
+                  <option value="crimson">Crimson City</option>
+                  <option value="silver">Silver Heights</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gothic-silver mb-2">
+                  Classification *
+                </label>
+                <select
+                  value={newDossier.classification}
+                  onChange={(e) => setNewDossier({ ...newDossier, classification: e.target.value as any })}
+                  className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
+                  required
+                >
+                  <option value="public">Public</option>
+                  <option value="confidential">Confidential</option>
+                  <option value="secret">Secret</option>
+                  <option value="top-secret">Top Secret</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="publish-dossier"
+                checked={newDossier.is_published}
+                onChange={(e) => setNewDossier({ ...newDossier, is_published: e.target.checked })}
+                className="w-4 h-4 text-gothic-silver bg-gothic-charcoal/50 border-gothic-steel/50 rounded focus:ring-gothic-silver focus:ring-2"
+              />
+              <label htmlFor="publish-dossier" className="text-sm font-medium text-gothic-silver">
+                Publish immediately (make visible to users)
+              </label>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
               <button
+                type="button"
                 onClick={() => setShowDossierCreateModal(false)}
-                className="text-gothic-steel hover:text-gothic-silver text-2xl font-bold"
+                className="px-6 py-3 bg-gothic-charcoal text-gothic-steel border border-gothic-steel rounded hover:bg-gothic-steel/20 transition-colors"
               >
-                ×
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-3 bg-gothic-silver text-gothic-black rounded hover:bg-gothic-silver/80 transition-colors"
+              >
+                Create Data Archive Entry
               </button>
             </div>
-            
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
-              <form className="space-y-4" onSubmit={(e) => {
-                e.preventDefault();
-                createDossierEntry();
-              }}>
-                <div>
-                  <label className="block text-sm font-medium text-gothic-silver mb-2">
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={newDossier.title}
-                    onChange={(e) => setNewDossier({ ...newDossier, title: e.target.value })}
-                    className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
-                    placeholder="Enter dossier title..."
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gothic-silver mb-2">
-                    Summary *
-                  </label>
-                  <input
-                    type="text"
-                    value={newDossier.summary}
-                    onChange={(e) => setNewDossier({ ...newDossier, summary: e.target.value })}
-                    className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
-                    placeholder="Brief summary..."
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gothic-silver mb-2">
-                    Content *
-                  </label>
-                  <textarea
-                    value={newDossier.content}
-                    onChange={(e) => setNewDossier({ ...newDossier, content: e.target.value })}
-                    className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none h-32 resize-none"
-                    placeholder="Detailed content..."
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gothic-silver mb-2">
-                      Type *
-                    </label>
-                    <select
-                      value={newDossier.type}
-                      onChange={(e) => setNewDossier({ ...newDossier, type: e.target.value as any })}
-                      className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
-                      required
-                    >
-                      <option value="character">Character</option>
-                      <option value="location">Location</option>
-                      <option value="event">Event</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gothic-silver mb-2">
-                      City *
-                    </label>
-                    <select
-                      value={newDossier.city}
-                      onChange={(e) => setNewDossier({ ...newDossier, city: e.target.value as any })}
-                      className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
-                      required
-                    >
-                      <option value="crimson">Crimson City</option>
-                      <option value="silver">Silver Heights</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gothic-silver mb-2">
-                      Classification *
-                    </label>
-                    <select
-                      value={newDossier.classification}
-                      onChange={(e) => setNewDossier({ ...newDossier, classification: e.target.value as any })}
-                      className="w-full p-3 bg-gothic-charcoal/50 border border-gothic-steel/50 rounded text-gothic-silver focus:border-gothic-silver focus:outline-none"
-                      required
-                    >
-                      <option value="public">Public</option>
-                      <option value="confidential">Confidential</option>
-                      <option value="secret">Secret</option>
-                      <option value="top-secret">Top Secret</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="publish-dossier"
-                    checked={newDossier.is_published}
-                    onChange={(e) => setNewDossier({ ...newDossier, is_published: e.target.checked })}
-                    className="w-4 h-4 text-gothic-silver bg-gothic-charcoal/50 border-gothic-steel/50 rounded focus:ring-gothic-silver focus:ring-2"
-                  />
-                  <label htmlFor="publish-dossier" className="text-sm font-medium text-gothic-silver">
-                    Publish immediately (make visible to users)
-                  </label>
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowDossierCreateModal(false)}
-                    className="px-6 py-3 bg-gothic-charcoal text-gothic-steel border border-gothic-steel rounded hover:bg-gothic-steel/20 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-3 bg-gothic-silver text-gothic-black rounded hover:bg-gothic-silver/80 transition-colors"
-                  >
-                    Create Data Archive Entry
-                  </button>
-                </div>
-              </form>
-            </div>
-          </motion.div>
-        </div>,
-        document.body
-      )}
+          </form>
+        </div>
+      </Modal>
 
       {/* Dossier Edit Modal */}
       {showDossierEditModal && editingDossier && (
@@ -2025,6 +2267,217 @@ export default function AdminSilver() {
         </div>,
         document.body
       )}
+
+      {/* Announcement Create Modal */}
+      <Modal
+        isOpen={showAnnouncementCreateModal}
+        onClose={() => setShowAnnouncementCreateModal(false)}
+        title="Create New Announcement"
+        theme="silver"
+        size="lg"
+      >
+        <div className="p-6">
+          <form onSubmit={createAnnouncement} className="space-y-4">
+            <div>
+              <label className="block text-sm font-gothic text-gothic-steel mb-1">Title</label>
+              <input
+                type="text"
+                value={newAnnouncement.title}
+                onChange={(e) => setNewAnnouncement((prev: any) => ({ ...prev, title: e.target.value }))}
+                className="w-full bg-gothic-dark-gray text-gothic-silver border border-gothic-steel rounded px-3 py-2 focus:border-gothic-silver focus:ring-1 focus:ring-gothic-silver outline-none"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-gothic text-gothic-steel mb-1">Content</label>
+              <textarea
+                value={newAnnouncement.content}
+                onChange={(e) => setNewAnnouncement((prev: any) => ({ ...prev, content: e.target.value }))}
+                rows={6}
+                className="w-full bg-gothic-dark-gray text-gothic-silver border border-gothic-steel rounded px-3 py-2 focus:border-gothic-silver focus:ring-1 focus:ring-gothic-silver outline-none resize-none"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-gothic text-gothic-steel mb-1">Priority (0-5)</label>
+              <input
+                type="number"
+                min="0"
+                max="5"
+                value={newAnnouncement.priority}
+                onChange={(e) => setNewAnnouncement((prev: any) => ({ ...prev, priority: parseInt(e.target.value) || 0 }))}
+                className="w-full bg-gothic-dark-gray text-gothic-silver border border-gothic-steel rounded px-3 py-2 focus:border-gothic-silver focus:ring-1 focus:ring-gothic-silver outline-none"
+              />
+              <p className="text-xs text-gothic-steel mt-1">Higher priority announcements appear first</p>
+            </div>
+
+            <div className="flex space-x-3 pt-4">
+              <button
+                type="submit"
+                className="flex-1 bg-gothic-silver text-gothic-charcoal py-2 px-4 rounded hover:bg-gothic-silver/80 transition-colors"
+              >
+                Create Announcement
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAnnouncementCreateModal(false)}
+                className="px-6 py-2 border border-gothic-steel text-gothic-steel rounded hover:bg-gothic-steel/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+
+      {/* Announcement Edit Modal */}
+      <Modal
+        isOpen={showAnnouncementEditModal && !!editingAnnouncement}
+        onClose={() => {
+          setShowAnnouncementEditModal(false);
+          setEditingAnnouncement(null);
+        }}
+        title="Edit Announcement"
+        theme="silver"
+        size="lg"
+      >
+        <div className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-gothic text-gothic-steel mb-1">Title</label>
+              <input
+                type="text"
+                value={editingAnnouncement?.title || ''}
+                onChange={(e) => setEditingAnnouncement((prev: any) => ({ ...prev, title: e.target.value }))}
+                className="w-full bg-gothic-dark-gray text-gothic-silver border border-gothic-steel rounded px-3 py-2 focus:border-gothic-silver focus:ring-1 focus:ring-gothic-silver outline-none"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-gothic text-gothic-steel mb-1">Content</label>
+              <textarea
+                value={editingAnnouncement?.content || ''}
+                onChange={(e) => setEditingAnnouncement((prev: any) => ({ ...prev, content: e.target.value }))}
+                rows={6}
+                className="w-full bg-gothic-dark-gray text-gothic-silver border border-gothic-steel rounded px-3 py-2 focus:border-gothic-silver focus:ring-1 focus:ring-gothic-silver outline-none resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-gothic text-gothic-steel mb-1">Priority (0-5)</label>
+              <input
+                type="number"
+                min="0"
+                max="5"
+                value={editingAnnouncement?.priority || 0}
+                onChange={(e) => setEditingAnnouncement((prev: any) => ({ ...prev, priority: parseInt(e.target.value) || 0 }))}
+                className="w-full bg-gothic-dark-gray text-gothic-silver border border-gothic-steel rounded px-3 py-2 focus:border-gothic-silver focus:ring-1 focus:ring-gothic-silver outline-none"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="is_active"
+                checked={editingAnnouncement?.is_active || false}
+                onChange={(e) => setEditingAnnouncement((prev: any) => ({ ...prev, is_active: e.target.checked }))}
+                className="text-gothic-silver"
+              />
+              <label htmlFor="is_active" className="text-sm font-gothic text-gothic-steel">Active</label>
+            </div>
+
+            <div className="flex space-x-3 pt-4">
+              <button
+                onClick={updateAnnouncement}
+                className="flex-1 bg-gothic-silver text-gothic-charcoal py-2 px-4 rounded hover:bg-gothic-silver/80 transition-colors"
+              >
+                Update Announcement
+              </button>
+              <button
+                onClick={() => {
+                  setShowAnnouncementEditModal(false);
+                  setEditingAnnouncement(null);
+                }}
+                className="px-6 py-2 border border-gothic-steel text-gothic-steel rounded hover:bg-gothic-steel/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Announcement Read Modal */}
+      <Modal
+        isOpen={showAnnouncementReadModal && !!readingAnnouncement}
+        onClose={() => {
+          setShowAnnouncementReadModal(false);
+          setReadingAnnouncement(null);
+        }}
+        title="Announcement Details"
+        theme="silver"
+        size="lg"
+      >
+        <div className="p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-xl font-gothic font-bold text-gothic-silver mb-2">{readingAnnouncement?.title}</h3>
+              <div className="flex items-center space-x-4 text-sm text-gothic-steel mb-4">
+                <span>By: {readingAnnouncement?.profiles?.username}</span>
+                <span className={`px-2 py-1 rounded ${
+                  readingAnnouncement?.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
+                }`}>
+                  {readingAnnouncement?.is_active ? 'Active' : 'Inactive'}
+                </span>
+                <span className={`px-2 py-1 rounded ${
+                  (readingAnnouncement?.priority || 0) >= 3 ? 'bg-red-500/20 text-red-400' 
+                  : (readingAnnouncement?.priority || 0) >= 1 ? 'bg-yellow-500/20 text-yellow-400'
+                  : 'bg-blue-500/20 text-blue-400'
+                }`}>
+                  Priority: {readingAnnouncement?.priority}
+                </span>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-lg font-gothic text-gothic-silver mb-2">Content</h4>
+              <div className="bg-gothic-dark-gray/50 p-4 rounded border border-gothic-steel/30">
+                <p className="text-gothic-steel whitespace-pre-wrap leading-relaxed">{readingAnnouncement?.content}</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-4 border-t border-gothic-steel/30">
+              <div className="text-xs text-gothic-steel">
+                <p>Created: {readingAnnouncement?.created_at && new Date(readingAnnouncement.created_at).toLocaleString()}</p>
+                <p>Updated: {readingAnnouncement?.updated_at && new Date(readingAnnouncement.updated_at).toLocaleString()}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setReadingAnnouncement(null);
+                  setShowAnnouncementReadModal(false);
+                  setEditingAnnouncement(readingAnnouncement);
+                  setShowAnnouncementEditModal(true);
+                }}
+                className="text-gothic-silver hover:text-blue-400 text-sm flex items-center space-x-1"
+              >
+                <Edit3 size={14} />
+                <span>Edit Announcement</span>
+              </button>
+            </div>
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={() => {
+                  setShowAnnouncementReadModal(false);
+                  setReadingAnnouncement(null);
+                }}
+                className="px-4 py-2 bg-gothic-silver text-gothic-charcoal rounded hover:bg-gothic-silver/80 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
