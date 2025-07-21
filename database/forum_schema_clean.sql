@@ -17,7 +17,7 @@ CREATE TABLE forum_threads (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
-    category VARCHAR(50) NOT NULL CHECK (category IN ('general', 'crimson', 'silver', 'convergence', 'mysteries', 'announcements')),
+    category VARCHAR(50) NOT NULL CHECK (category IN ('general', 'crimson', 'silver', 'convergence', 'mysteries')),
     author_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     is_pinned BOOLEAN DEFAULT false,
     is_locked BOOLEAN DEFAULT false,
