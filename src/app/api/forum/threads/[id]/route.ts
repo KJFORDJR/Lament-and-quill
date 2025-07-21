@@ -95,18 +95,29 @@ export async function DELETE(
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });
     }
 
-    // Verify thread ownership or admin role
+    // Get the thread info
     const { data: thread } = await supabaseAdmin
       .from('forum_threads')
-      .select(`
-        author_id,
-        profiles:author_id(user_role)
-      `)
+      .select('author_id')
       .eq('id', threadId)
       .single();
 
-    const profile = Array.isArray(thread?.profiles) ? thread.profiles[0] : thread?.profiles;
-    if (!thread || (thread.author_id !== author_id && profile?.user_role !== 'admin')) {
+    if (!thread) {
+      return NextResponse.json({ error: 'Thread not found' }, { status: 404 });
+    }
+
+    // Get the requester's profile to check admin status
+    const { data: requesterProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('user_role')
+      .eq('id', author_id)
+      .single();
+
+    // Check if user is the author or an admin
+    const isAuthor = thread.author_id === author_id;
+    const isAdmin = requesterProfile?.user_role === 'admin';
+
+    if (!isAuthor && !isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -146,18 +157,29 @@ export async function PUT(
       return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
     }
 
-    // Verify thread ownership or admin role
+    // Get the thread info
     const { data: thread } = await supabaseAdmin
       .from('forum_threads')
-      .select(`
-        author_id,
-        profiles:author_id(user_role)
-      `)
+      .select('author_id')
       .eq('id', threadId)
       .single();
 
-    const profile = Array.isArray(thread?.profiles) ? thread.profiles[0] : thread?.profiles;
-    if (!thread || (thread.author_id !== author_id && profile?.user_role !== 'admin')) {
+    if (!thread) {
+      return NextResponse.json({ error: 'Thread not found' }, { status: 404 });
+    }
+
+    // Get the requester's profile to check admin status
+    const { data: requesterProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('user_role')
+      .eq('id', author_id)
+      .single();
+
+    // Check if user is the author or an admin
+    const isAuthor = thread.author_id === author_id;
+    const isAdmin = requesterProfile?.user_role === 'admin';
+
+    if (!isAuthor && !isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
