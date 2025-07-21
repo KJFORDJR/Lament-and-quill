@@ -1,10 +1,78 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Shield, Crown, Cpu, Database, Users, Settings, ShoppingCart, Package } from 'lucide-react';
+import { Shield, Crown, Cpu, Database, Users, Settings, ShoppingCart, Package, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface SystemStatus {
+  activeUsers: number;
+  totalUsers: number;
+  recentActiveUsers: number;
+  neuralConnections: number;
+  uptimePercentage: number;
+  metrics: {
+    forumThreads: number;
+    forumReplies: number;
+    crimsonConfessions: number;
+    lamentSubmissions: number;
+    orders: number;
+  };
+  lastUpdated: string;
+}
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      fetchSystemStatus();
+    }
+  }, [user]);
+
+  const fetchSystemStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/admin/system-status', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch system status');
+      }
+
+      const data = await response.json();
+      setSystemStatus(data);
+    } catch (error) {
+      console.error('Error fetching system status:', error);
+      // Fallback to placeholder data if fetch fails
+      setSystemStatus({
+        activeUsers: 0,
+        totalUsers: 0,
+        recentActiveUsers: 0,
+        neuralConnections: 0,
+        uptimePercentage: 0,
+        metrics: { forumThreads: 0, forumReplies: 0, crimsonConfessions: 0, lamentSubmissions: 0, orders: 0 },
+        lastUpdated: new Date().toISOString()
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchSystemStatus();
+  };
+
   const adminSections = [
     {
       title: 'Crimson City Administration',
@@ -62,6 +130,30 @@ export default function AdminDashboard() {
               <Shield size={16} className="inline mr-2" />
               Administrator privileges required for access
             </p>
+          </div>
+        </motion.div>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-12 text-center"
+        >
+          <h3 className="text-lg font-gothic text-gothic-silver mb-4">Quick Actions</h3>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link href="/admin/users" className="cyber-button px-4 py-2 text-sm">
+              <Users size={16} className="mr-2" />
+              User Management
+            </Link>
+            <Link href="/admin/settings" className="cyber-button px-4 py-2 text-sm">
+              <Settings size={16} className="mr-2" />
+              System Settings
+            </Link>
+            <Link href="/admin/analytics" className="cyber-button px-4 py-2 text-sm">
+              <Database size={16} className="mr-2" />
+              Analytics Dashboard
+            </Link>
           </div>
         </motion.div>
 
@@ -175,50 +267,96 @@ export default function AdminDashboard() {
               <Database size={24} className="mr-3" />
               System Status
             </h3>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-green-400 text-sm">All Systems Operational</span>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="cyber-button-secondary flex items-center space-x-2 text-sm"
+              >
+                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                <span>{refreshing ? 'Updating...' : 'Refresh'}</span>
+              </button>
+              <div className="flex items-center space-x-2">
+                <div className={`w-3 h-3 rounded-full animate-pulse ${
+                  systemStatus && systemStatus.uptimePercentage > 95 
+                    ? 'bg-green-400' 
+                    : systemStatus && systemStatus.uptimePercentage > 85
+                    ? 'bg-yellow-400'
+                    : 'bg-red-400'
+                }`}></div>
+                <span className={`text-sm ${
+                  systemStatus && systemStatus.uptimePercentage > 95 
+                    ? 'text-green-400' 
+                    : systemStatus && systemStatus.uptimePercentage > 85
+                    ? 'text-yellow-400'
+                    : 'text-red-400'
+                }`}>
+                  {systemStatus && systemStatus.uptimePercentage > 95 
+                    ? 'All Systems Operational'
+                    : systemStatus && systemStatus.uptimePercentage > 85
+                    ? 'Systems Degraded'
+                    : 'System Issues'
+                  }
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gothic-crimson mb-2">2,847</div>
-              <div className="text-gothic-steel text-sm">Active Users</div>
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin w-8 h-8 border-2 border-gothic-silver border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-gothic-steel">Loading system status...</p>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gothic-silver mb-2">15,642</div>
-              <div className="text-gothic-steel text-sm">Neural Connections</div>
+          ) : systemStatus ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gothic-crimson mb-2">
+                    {systemStatus.activeUsers.toLocaleString()}
+                  </div>
+                  <div className="text-gothic-steel text-sm">Active Users (30d)</div>
+                  <div className="text-xs text-gothic-steel/70 mt-1">
+                    {systemStatus.recentActiveUsers} in last 24h
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gothic-silver mb-2">
+                    {systemStatus.neuralConnections.toLocaleString()}
+                  </div>
+                  <div className="text-gothic-steel text-sm">Neural Connections</div>
+                  <div className="text-xs text-gothic-steel/70 mt-1">
+                    Threads: {systemStatus.metrics.forumThreads} • 
+                    Replies: {systemStatus.metrics.forumReplies} • 
+                    Confessions: {systemStatus.metrics.crimsonConfessions} • 
+                    Laments: {systemStatus.metrics.lamentSubmissions} • 
+                    Orders: {systemStatus.metrics.orders}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-400 mb-2">
+                    {systemStatus.uptimePercentage}%
+                  </div>
+                  <div className="text-gothic-steel text-sm">Network Uptime</div>
+                  <div className="text-xs text-gothic-steel/70 mt-1">
+                    Total users: {systemStatus.totalUsers}
+                  </div>
+                </div>
+              </div>
+              <div className="text-center text-xs text-gothic-steel/50">
+                Last updated: {new Date(systemStatus.lastUpdated).toLocaleString()}
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gothic-steel">Failed to load system status</p>
+              <button
+                onClick={handleRefresh}
+                className="cyber-button mt-4 text-sm"
+              >
+                Try Again
+              </button>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-400 mb-2">99.7%</div>
-              <div className="text-gothic-steel text-sm">Network Uptime</div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="mt-8 text-center"
-        >
-          <h3 className="text-lg font-gothic text-gothic-silver mb-4">Quick Actions</h3>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/admin/users" className="cyber-button px-4 py-2 text-sm">
-              <Users size={16} className="mr-2" />
-              User Management
-            </Link>
-            <Link href="/admin/settings" className="cyber-button px-4 py-2 text-sm">
-              <Settings size={16} className="mr-2" />
-              System Settings
-            </Link>
-            <Link href="/admin/analytics" className="cyber-button px-4 py-2 text-sm">
-              <Database size={16} className="mr-2" />
-              Analytics Dashboard
-            </Link>
-          </div>
+          )}
         </motion.div>
       </div>
     </div>

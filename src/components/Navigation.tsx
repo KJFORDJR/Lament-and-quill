@@ -51,9 +51,10 @@ export function Navigation() {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-4">
-                <span className="text-gothic-silver text-sm">
-                  Welcome, {user.user_metadata?.username || user.email}
-                </span>
+                <Link href="/profile" className="cyber-button-secondary flex items-center space-x-2">
+                  <User size={16} />
+                  <span>{user.user_metadata?.username || user.email}</span>
+                </Link>
                 {isAdmin && (
                   <Link href="/admin" className="cyber-button flex items-center space-x-2 bg-gothic-crimson/20 hover:bg-gothic-crimson/30 text-gothic-crimson border-gothic-crimson/30">
                     <Shield size={16} />
@@ -121,9 +122,10 @@ export function Navigation() {
             <div className="pt-4 pb-2 border-t border-gothic-red/30 flex space-x-4">
               {user ? (
                 <div className="flex flex-col space-y-2 w-full">
-                  <span className="text-gothic-silver text-sm">
-                    Welcome, {user.user_metadata?.username || user.email}
-                  </span>
+                  <Link href="/profile" className="cyber-button-secondary flex items-center space-x-2">
+                    <User size={16} />
+                    <span>{user.user_metadata?.username || user.email}</span>
+                  </Link>
                   {isAdmin && (
                     <Link href="/admin" className="cyber-button flex items-center space-x-2 bg-gothic-crimson/20 hover:bg-gothic-crimson/30 text-gothic-crimson">
                       <Shield size={16} />

@@ -5,8 +5,9 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CreditCard, Lock, Package, User, MapPin, Mail, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
+import { useAuth } from '@/contexts/AuthContext';
 import StripePayment from '@/components/payments/StripePayment';
+import { formatPhoneNumber } from '@/utils/phoneUtils';
 
 interface CartItem {
   id: string;
@@ -36,7 +37,7 @@ interface ShippingAddress {
 }
 
 export default function CheckoutPage() {
-  const { user, profile, loading: userLoading } = useUser();
+  const { user, profile, loading: userLoading } = useAuth();
   const router = useRouter();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +71,24 @@ export default function CheckoutPage() {
     }
     fetchCartItems();
   }, [user, userLoading]);
+
+  // Auto-fill form with user profile data
+  useEffect(() => {
+    if (profile && user) {
+      setShippingAddress(prev => ({
+        firstName: profile.first_name || prev.firstName,
+        lastName: profile.last_name || prev.lastName,
+        email: user.email || prev.email,
+        phone: profile.phone_number ? formatPhoneNumber(profile.phone_number) : prev.phone,
+        address1: profile.shipping_address?.street || prev.address1,
+        address2: prev.address2,
+        city: profile.shipping_address?.city || prev.city,
+        state: profile.shipping_address?.state || prev.state,
+        zipCode: profile.shipping_address?.postal_code || prev.zipCode,
+        country: profile.shipping_address?.country || prev.country
+      }));
+    }
+  }, [profile, user]);
 
   const fetchCartItems = async () => {
     if (!user) return;
@@ -433,9 +452,12 @@ export default function CheckoutPage() {
                         type="tel"
                         required
                         value={shippingAddress.phone}
-                        onChange={(e) => setShippingAddress(prev => 
-                          ({ ...prev, phone: e.target.value })
-                        )}
+                        onChange={(e) => {
+                          const formatted = formatPhoneNumber(e.target.value);
+                          setShippingAddress(prev => ({ ...prev, phone: formatted }));
+                        }}
+                        placeholder="(555) 123-4567"
+                        maxLength={14}
                         className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded-md px-4 py-3 text-white focus:outline-none focus:border-gothic-silver"
                       />
                     </div>

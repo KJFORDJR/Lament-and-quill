@@ -34,6 +34,29 @@ export default function Login() {
       }
 
       if (data.user) {
+        // Check if user is admin and if maintenance mode is active
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('user_role')
+            .eq('id', data.user.id)
+            .single();
+
+          const { data: config } = await supabase
+            .from('system_config')
+            .select('maintenance_mode')
+            .single();
+
+          // If maintenance mode is active and user is not admin, redirect to maintenance
+          if (config?.maintenance_mode && profile?.user_role !== 'admin') {
+            await supabase.auth.signOut();
+            router.push('/maintenance');
+            return;
+          }
+        } catch (configError) {
+          console.error('Error checking system status:', configError);
+        }
+
         // Redirect to dashboard or home page
         router.push('/');
         router.refresh();
@@ -155,7 +178,7 @@ export default function Login() {
                 Remember this chronicle
               </label>
               <Link href="/forgot-password" className="text-gothic-crimson hover:text-gothic-silver transition-colors">
-                Forgotten shadows?
+                Forgot Password?
               </Link>
             </motion.div>
 

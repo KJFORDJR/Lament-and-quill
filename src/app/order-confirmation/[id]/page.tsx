@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CheckCircle, Package, Truck, MapPin, Calendar, Download, Mail } from 'lucide-react';
+import { CheckCircle, Package, Truck, MapPin, Calendar, Download, Mail, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatPhoneNumber } from '@/utils/phoneUtils';
 
 interface Order {
   id: string;
@@ -31,7 +32,7 @@ interface Order {
 export default function OrderConfirmationPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading: userLoading } = useUser();
+  const { user, loading: userLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -228,7 +229,7 @@ export default function OrderConfirmationPage() {
                 <p>{order.shipping_address.country}</p>
                 <div className="pt-2 border-t border-gothic-dark-gray mt-3">
                   <p>{order.shipping_address.email}</p>
-                  <p>{order.shipping_address.phone}</p>
+                  <p>{formatPhoneNumber(order.shipping_address.phone || '')}</p>
                 </div>
               </div>
             </motion.div>

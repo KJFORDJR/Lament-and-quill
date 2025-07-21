@@ -1,0 +1,119 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface SystemConfig {
+  maintenance_mode: boolean;
+  registration_enabled: boolean;
+  forum_enabled: boolean;
+  marketplace_enabled: boolean;
+}
+
+interface MaintenanceWrapperProps {
+  children: React.ReactNode;
+}
+
+export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
+  const [config, setConfig] = useState<SystemConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    // Fetch system configuration
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch('/api/system-config');
+        if (response.ok) {
+          const configData = await response.json();
+          setConfig(configData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch system config:', error);
+        // Assume normal operation if we can't fetch config
+        setConfig({
+          maintenance_mode: false,
+          registration_enabled: true,
+          forum_enabled: true,
+          marketplace_enabled: true,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConfig();
+  }, []);
+
+  useEffect(() => {
+    if (loading || !config) return;
+
+    // Check if user is admin
+    const checkAdminStatus = async () => {
+      if (user) {
+        try {
+          const response = await fetch('/api/profile?userId=' + user.id);
+          if (response.ok) {
+            const profile = await response.json();
+            console.log('User profile:', profile);
+            console.log('Config maintenance_mode:', config.maintenance_mode);
+            console.log('Current pathname:', pathname);
+            
+            // If user is admin, allow access to everything
+            if (profile.user_role === 'admin') {
+              console.log('User is admin, allowing access');
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+        }
+      }
+
+      console.log('User is not admin or not logged in, applying restrictions');
+      console.log('Maintenance mode:', config.maintenance_mode);
+
+      // Apply maintenance mode restrictions for non-admin users
+      if (config.maintenance_mode && pathname !== '/maintenance' && !pathname.startsWith('/admin')) {
+        console.log('Redirecting to maintenance page from:', pathname);
+        router.push('/maintenance');
+        return;
+      }
+
+      // Apply other feature restrictions
+      if (!config.registration_enabled && pathname === '/register') {
+        router.push('/registration-disabled');
+        return;
+      }
+
+      if (!config.forum_enabled && pathname.startsWith('/forum')) {
+        router.push('/forum-maintenance');
+        return;
+      }
+
+      if (!config.marketplace_enabled && (pathname.startsWith('/merchandise') || pathname.startsWith('/checkout'))) {
+        router.push('/marketplace-maintenance');
+        return;
+      }
+    };
+
+    checkAdminStatus();
+  }, [config, pathname, router, user, loading]);
+
+  if (loading) {
+    // Show a loading state while checking configuration
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gothic-silver">
+          <div className="animate-spin w-8 h-8 border-2 border-gothic-silver border-t-transparent rounded-full mx-auto mb-4"></div>
+          Initializing...
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}

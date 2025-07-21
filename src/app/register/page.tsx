@@ -243,11 +243,11 @@ export default function Register() {
                 <span>
                   I agree to the{' '}
                   <Link href="/terms" className="text-gothic-crimson hover:text-gothic-silver transition-colors">
-                    Terms of the Chronicle
+                    Terms of Service
                   </Link>
                   {' '}and{' '}
                   <Link href="/privacy" className="text-gothic-crimson hover:text-gothic-silver transition-colors">
-                    Shadow Accord
+                    Privacy Policy
                   </Link>
                 </span>
               </label>

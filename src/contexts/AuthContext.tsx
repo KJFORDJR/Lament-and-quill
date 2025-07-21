@@ -8,8 +8,21 @@ interface UserProfile {
   id: string;
   username: string;
   display_name?: string;
+  first_name?: string;
+  last_name?: string;
+  phone_number?: string;
+  bio?: string;
   user_role: 'user' | 'admin' | 'moderator';
   city_affiliation: 'crimson' | 'silver' | 'neutral';
+  shipping_address?: {
+    street: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+  };
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface AuthContextType {
@@ -94,8 +107,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear all local state
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      
+      // Force a page refresh to ensure all state is cleared
+      // and redirect to home page
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Even if there's an error, clear local state and redirect
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      window.location.href = '/';
+    }
   };
 
   return (
