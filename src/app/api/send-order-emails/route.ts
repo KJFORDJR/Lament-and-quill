@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -8,6 +8,8 @@ export async function POST(request: NextRequest) {
   try {
     const { orderId } = await request.json();
 
+    console.log('🔍 Email API called with orderId:', orderId, 'Type:', typeof orderId);
+
     if (!orderId) {
       return NextResponse.json(
         { error: 'Order ID is required' },
@@ -15,8 +17,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch order details with user profile
-    const { data: order, error: orderError } = await supabase
+    // Check if admin client is available
+    if (!supabaseAdmin) {
+      console.error('❌ Supabase admin client not configured');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+
+    // Fetch order details with user profile using ADMIN client to bypass RLS
+    console.log('🔍 Attempting to fetch order from database...');
+    const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .select(`
         *,
@@ -29,31 +41,62 @@ export async function POST(request: NextRequest) {
       .eq('id', orderId)
       .single();
 
-    if (orderError || !order) {
-      console.error('Order fetch error:', orderError);
+    if (orderError) {
+      console.error('❌ Order fetch error:', orderError);
+      console.error('❌ Failed to find order with ID:', orderId);
+      
+      // Let's try to see what orders exist using ADMIN client
+      const { data: allOrders, error: listError } = await supabaseAdmin
+        .from('orders')
+        .select('id, order_number, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5);
+        
+      if (!listError && allOrders) {
+        console.log('🔍 Recent orders in database:', allOrders);
+      }
+      
+      return NextResponse.json(
+        { error: 'Order not found', details: orderError.message },
+        { status: 404 }
+      );
+    }
+
+    if (!order) {
+      console.error('❌ Order is null/undefined');
       return NextResponse.json(
         { error: 'Order not found' },
         { status: 404 }
       );
     }
 
-    // Fetch user profile and email separately
-    const { data: profile, error: profileError } = await supabase
+    console.log('✅ Found order:', {
+      id: order.id,
+      order_number: order.order_number,
+      user_id: order.user_id,
+      total_amount: order.total_amount
+    });
+
+    // Fetch user profile and email separately using ADMIN client
+    console.log('🔍 Fetching user profile and email...');
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('first_name, last_name')
       .eq('id', order.user_id)
       .single();
 
-    // Get user email from auth.users
-    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(order.user_id);
+    // Get user email from auth.users using admin client
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.getUserById(order.user_id);
     
     if (authError) {
-      console.error('Auth user fetch error:', authError);
+      console.error('❌ Auth user fetch error:', authError);
       return NextResponse.json(
-        { error: 'User not found' },
+        { error: 'User not found', details: authError.message },
         { status: 404 }
       );
     }
+
+    console.log('✅ Found user email:', authUser.user?.email);
 
     // Combine the data
     const orderWithUser = {
