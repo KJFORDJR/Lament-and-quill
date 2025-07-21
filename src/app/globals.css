@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Orbitron:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 192, 192, 192;
+  --background-start-rgb: 10, 10, 10;
+  --background-end-rgb: 26, 26, 26;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  color: rgb(var(--foreground-rgb));
+  font-family: 'Crimson Text', serif;
+}
+
+.gothic-container {
+  background: radial-gradient(circle at center, rgba(220, 20, 60, 0.05) 0%, rgba(10, 10, 10, 0.9) 100%);
+  backdrop-filter: blur(1px);
+}
+
+.crimson-theme {
+  background: linear-gradient(135deg, #8b0000 0%, #000000 100%);
+  border: 1px solid #dc143c;
+}
+
+.silver-theme {
+  background: linear-gradient(135deg, #708090 0%, #2a2a2a 100%);
+  border: 1px solid #c0c0c0;
+}
+
+.tech-border {
+  border: 1px solid #333;
+  background: linear-gradient(45deg, transparent 30%, rgba(220, 20, 60, 0.1) 50%, transparent 70%);
+}
+
+/* Modal overlay utilities */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99999 !important;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-container {
+  position: relative;
+  z-index: 99999 !important;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.glow-text {
+  text-shadow: 0 0 10px currentColor;
+}
+
+.cyber-button {
+  position: relative;
+  background: linear-gradient(45deg, transparent, rgba(220, 20, 60, 0.2), transparent);
+  border: 1px solid #dc143c;
+  color: #c0c0c0;
+  padding: 0.75rem 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.cyber-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(220, 20, 60, 0.4), transparent);
+  transition: left 0.5s;
+}
+
+.cyber-button:hover::before {
+  left: 100%;
+}
+
+.cyber-button:hover {
+  box-shadow: 0 0 20px rgba(220, 20, 60, 0.5);
+  color: #ffffff;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Custom navigation styles */
+.nav-dossier {
+  background: linear-gradient(45deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 193, 7, 0.1) 100%);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+}
+
+.nav-dossier:hover {
+  background: linear-gradient(45deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 193, 7, 0.2) 100%);
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+}
+
+.nav-green {
+  text-shadow: 0 0 6px rgba(34, 139, 34, 0.8);
+}
+
+.nav-green:hover {
+  text-shadow: 0 0 10px rgba(34, 139, 34, 1);
+}
