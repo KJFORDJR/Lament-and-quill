@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ShoppingBag, Star, Eye, Heart, Filter } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+import AddToCartDialog from '@/components/AddToCartDialog';
 
 interface MerchandiseItem {
   id: string;
@@ -32,6 +33,8 @@ export default function Merchandise() {
   const [merchandise, setMerchandise] = useState<MerchandiseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
+  const [showAddToCartDialog, setShowAddToCartDialog] = useState(false);
+  const [lastAddedProduct, setLastAddedProduct] = useState<string>('');
 
   useEffect(() => {
     fetchMerchandise();
@@ -112,6 +115,12 @@ export default function Merchandise() {
       }
 
       await fetchCartCount();
+      
+      // Show success dialog
+      const product = merchandise.find(m => m.id === productId);
+      setLastAddedProduct(product?.title || 'Item');
+      setShowAddToCartDialog(true);
+      
     } catch (error) {
       console.error('Error adding to cart:', error);
       alert('Failed to add item to cart');
@@ -372,6 +381,13 @@ export default function Merchandise() {
             <span>Cart ({cartCount})</span>
           </button>
         </motion.div>
+
+        {/* Add to Cart Dialog */}
+        <AddToCartDialog
+          isOpen={showAddToCartDialog}
+          onClose={() => setShowAddToCartDialog(false)}
+          productTitle={lastAddedProduct}
+        />
       </div>
     </div>
   );

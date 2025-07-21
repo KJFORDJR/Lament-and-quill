@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Star, ShoppingBag, Heart, Share2, Plus, Minus, Package } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+import AddToCartDialog from '@/components/AddToCartDialog';
 
 interface MerchandiseItem {
   id: string;
@@ -32,6 +33,7 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [showAddToCartDialog, setShowAddToCartDialog] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -96,8 +98,9 @@ export default function ProductPage() {
         if (error) throw error;
       }
 
-      // Success feedback
-      alert('Added to cart successfully!');
+      // Show success dialog
+      setShowAddToCartDialog(true);
+      
     } catch (error) {
       console.error('Error adding to cart:', error);
       alert('Failed to add item to cart');
@@ -343,6 +346,13 @@ export default function ProductPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* Add to Cart Dialog */}
+      <AddToCartDialog
+        isOpen={showAddToCartDialog}
+        onClose={() => setShowAddToCartDialog(false)}
+        productTitle={product?.title}
+      />
     </div>
   );
 }
