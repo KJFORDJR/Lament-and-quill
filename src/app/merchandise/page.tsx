@@ -1,12 +1,122 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { ShoppingBag, Star, Eye, Heart, Filter } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useUser } from '@/hooks/useUser';
+
+interface MerchandiseItem {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  image_url: string | null;
+  badge_text: string | null;
+  badge_color: string;
+  badge_border_color: string;
+  is_featured: boolean;
+  is_active: boolean;
+  stock_quantity: number;
+  category: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function Merchandise() {
+  const { user } = useUser();
+  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState('all');
   const [sortBy, setSortBy] = useState('featured');
+  const [merchandise, setMerchandise] = useState<MerchandiseItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    fetchMerchandise();
+    if (user) {
+      fetchCartCount();
+    }
+  }, [user]);
+
+  const fetchMerchandise = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('merchandise')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMerchandise(data || []);
+    } catch (error) {
+      console.error('Error fetching merchandise:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCartCount = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select('quantity')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      const totalCount = data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      setCartCount(totalCount);
+    } catch (error) {
+      console.error('Error fetching cart count:', error);
+    }
+  };
+
+  const addToCart = async (productId: string) => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    try {
+      // Check if item already exists in cart
+      const { data: existingItem } = await supabase
+        .from('cart_items')
+        .select('id, quantity')
+        .eq('user_id', user.id)
+        .eq('merchandise_id', productId)
+        .single();
+
+      if (existingItem) {
+        // Update quantity
+        const { error } = await supabase
+          .from('cart_items')
+          .update({ quantity: existingItem.quantity + 1 })
+          .eq('id', existingItem.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new item
+        const { error } = await supabase
+          .from('cart_items')
+          .insert({
+            user_id: user.id,
+            merchandise_id: productId,
+            quantity: 1
+          });
+
+        if (error) throw error;
+      }
+
+      await fetchCartCount();
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      alert('Failed to add item to cart');
+    }
+  };
 
   const categories = [
     { id: 'all', label: 'All Items' },
@@ -17,85 +127,24 @@ export default function Merchandise() {
     { id: 'services', label: 'Services' }
   ];
 
-  const products = [
-    {
-      id: 1,
-      name: 'Crimson Quarter Hoodie',
-      price: 89.99,
-      originalPrice: 109.99,
-      category: 'apparel',
-      image: '/placeholder-hoodie.jpg',
-      rating: 4.8,
-      reviews: 124,
-      description: 'Premium heavyweight hoodie with embroidered Crimson City sigil. Blood-red accents on charcoal black.',
-      tags: ['Limited Edition', 'Bestseller'],
-      inStock: true
-    },
-    {
-      id: 2,
-      name: 'Silver Heights Neural Interface Pin',
-      price: 24.99,
-      category: 'accessories',
-      image: '/placeholder-pin.jpg',
-      rating: 4.9,
-      reviews: 89,
-      description: 'Collectible enamel pin featuring the iconic neural interface design. Chrome finish with LED accent.',
-      tags: ['New', 'Collector\'s Item'],
-      inStock: true
-    },
-    {
-      id: 3,
-      name: 'Digital Dossier Pack',
-      price: 15.99,
-      category: 'digital',
-      image: '/placeholder-digital.jpg',
-      rating: 4.7,
-      reviews: 67,
-      description: 'Complete digital pack containing exclusive character backgrounds, city maps, and hidden lore.',
-      tags: ['Digital Download', 'Instant Access'],
-      inStock: true
-    },
-    {
-      id: 4,
-      name: 'Gothic Tech Noir Poster Set',
-      price: 34.99,
-      category: 'collectibles',
-      image: '/placeholder-poster.jpg',
-      rating: 4.6,
-      reviews: 45,
-      description: 'Set of 3 high-quality art prints featuring iconic scenes from both cities. Museum-grade paper.',
-      tags: ['Art Print', 'Limited Run'],
-      inStock: false
-    },
-    {
-      id: 5,
-      name: 'Personalized Chronicle Service',
-      price: 199.99,
-      category: 'services',
-      image: '/placeholder-service.jpg',
-      rating: 5.0,
-      reviews: 12,
-      description: 'Custom written chronicle entry featuring your character integrated into the official city records.',
-      tags: ['Premium Service', 'Custom'],
-      inStock: true
-    },
-    {
-      id: 6,
-      name: 'Binary Blood Coffee Mug',
-      price: 19.99,
-      category: 'accessories',
-      image: '/placeholder-mug.jpg',
-      rating: 4.5,
-      reviews: 78,
-      description: 'Heat-reactive mug that reveals hidden binary code when filled with hot liquid. Dishwasher safe.',
-      tags: ['Interactive', 'Daily Use'],
-      inStock: true
-    }
-  ];
-
   const filteredProducts = activeCategory === 'all' 
-    ? products 
-    : products.filter(product => product.category === activeCategory);
+    ? merchandise 
+    : merchandise.filter(product => product.category === activeCategory);
+
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    switch (sortBy) {
+      case 'price-low':
+        return a.price - b.price;
+      case 'price-high':
+        return b.price - a.price;
+      case 'featured':
+        return Number(b.is_featured) - Number(a.is_featured);
+      case 'newest':
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      default:
+        return 0;
+    }
+  });
 
   return (
     <div className="min-h-screen py-12 px-4">
@@ -172,107 +221,140 @@ export default function Merchandise() {
           transition={{ delay: 0.4, duration: 0.8 }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
         >
-          {filteredProducts.map((product, index) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1, duration: 0.6 }}
-              className="group cursor-pointer"
-            >
-              <div className="bg-gothic-dark-gray/20 hover:bg-gothic-dark-gray/30 rounded-lg overflow-hidden border border-gothic-dark-gray/30 hover:border-gothic-silver/30 transition-all duration-300">
-                {/* Image Placeholder */}
-                <div className="aspect-square bg-gradient-to-br from-gothic-charcoal to-gothic-black flex items-center justify-center relative overflow-hidden">
-                  <div className="text-gothic-steel text-6xl opacity-20">📦</div>
-                  {!product.inStock && (
-                    <div className="absolute inset-0 bg-gothic-black/60 flex items-center justify-center">
-                      <span className="text-red-400 font-bold text-lg">Out of Stock</span>
+          {loading ? (
+            <div className="col-span-full text-center py-12">
+              <div className="text-gothic-steel">Loading merchandise...</div>
+            </div>
+          ) : sortedProducts.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <ShoppingBag size={48} className="text-gothic-steel mx-auto mb-4" />
+              <p className="text-gothic-steel">No products found in this category.</p>
+            </div>
+          ) : (
+            sortedProducts.map((product, index) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1, duration: 0.6 }}
+                className="group cursor-pointer"
+                onClick={() => router.push(`/merchandise/${product.id}`)}
+              >
+                <div className="bg-gothic-dark-gray/20 hover:bg-gothic-dark-gray/30 rounded-lg overflow-hidden border border-gothic-dark-gray/30 hover:border-gothic-silver/30 transition-all duration-300">
+                  {/* Image */}
+                  <div className="aspect-square bg-gradient-to-br from-gothic-charcoal to-gothic-black flex items-center justify-center relative overflow-hidden">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-gothic-steel text-6xl opacity-20">📦</div>
+                    )}
+                    
+                    {product.stock_quantity === 0 && (
+                      <div className="absolute inset-0 bg-gothic-black/60 flex items-center justify-center">
+                        <span className="text-red-400 font-bold text-lg">Out of Stock</span>
+                      </div>
+                    )}
+                    
+                    {/* Badge */}
+                    {product.badge_text && (
+                      <div
+                        className="absolute top-3 left-3 px-2 py-1 text-xs font-bold rounded"
+                        style={{
+                          backgroundColor: product.badge_color,
+                          borderColor: product.badge_border_color,
+                          borderWidth: '1px',
+                          color: '#ffffff'
+                        }}
+                      >
+                        {product.badge_text}
+                      </div>
+                    )}
+                    
+                    {/* Status Indicators */}
+                    {product.is_featured && (
+                      <div className="absolute top-3 right-3 bg-yellow-400 text-gothic-black px-2 py-1 text-xs rounded font-medium">
+                        Featured
+                      </div>
+                    )}
+                    
+                    {/* Quick Actions */}
+                    <div className="absolute bottom-3 right-3 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/merchandise/${product.id}`);
+                        }}
+                        className="p-2 bg-gothic-black/60 rounded-full text-gothic-steel hover:text-gothic-silver"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Add to wishlist functionality
+                        }}
+                        className="p-2 bg-gothic-black/60 rounded-full text-gothic-steel hover:text-red-400"
+                      >
+                        <Heart size={16} />
+                      </button>
                     </div>
-                  )}
-                  {/* Tags */}
-                  <div className="absolute top-3 left-3 flex flex-wrap gap-1">
-                    {product.tags.map(tag => (
-                      <span
-                        key={tag}
-                        className={`px-2 py-1 text-xs rounded-full font-medium ${
-                          tag === 'New' ? 'bg-green-600/20 text-green-400' :
-                          tag === 'Limited Edition' || tag === 'Limited Run' ? 'bg-red-600/20 text-red-400' :
-                          tag === 'Bestseller' ? 'bg-yellow-600/20 text-yellow-400' :
-                          'bg-gothic-silver/20 text-gothic-silver'
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="p-6">
+                    <h3 className="text-lg font-gothic font-bold text-gothic-silver mb-2 group-hover:text-white transition-colors">
+                      {product.title}
+                    </h3>
+                    
+                    <p className="text-gothic-steel text-sm mb-4 leading-relaxed line-clamp-2">
+                      {product.description}
+                    </p>
+
+                    {/* Category */}
+                    <div className="mb-4">
+                      <span className="inline-block px-2 py-1 text-xs rounded bg-gothic-steel/20 text-gothic-steel capitalize">
+                        {product.category}
+                      </span>
+                    </div>
+
+                    {/* Price and Actions */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xl font-bold text-gothic-silver">
+                          ${product.price.toFixed(2)}
+                        </span>
+                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(product.id);
+                        }}
+                        disabled={product.stock_quantity === 0}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                          product.stock_quantity > 0
+                            ? 'cyber-button hover:shadow-lg hover:shadow-gothic-silver/20'
+                            : 'bg-gothic-dark-gray text-gothic-steel cursor-not-allowed'
                         }`}
                       >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  {/* Quick Actions */}
-                  <div className="absolute top-3 right-3 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-2 bg-gothic-black/60 rounded-full text-gothic-steel hover:text-gothic-silver">
-                      <Eye size={16} />
-                    </button>
-                    <button className="p-2 bg-gothic-black/60 rounded-full text-gothic-steel hover:text-red-400">
-                      <Heart size={16} />
-                    </button>
+                        {product.stock_quantity > 0 ? 'Add to Cart' : 'Out of Stock'}
+                      </button>
+                    </div>
+                    
+                    {/* Stock indicator */}
+                    {product.stock_quantity > 0 && product.stock_quantity <= 5 && (
+                      <div className="mt-2 text-xs text-yellow-400">
+                        Only {product.stock_quantity} left in stock
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {/* Product Info */}
-                <div className="p-6">
-                  <h3 className="text-lg font-gothic font-bold text-gothic-silver mb-2 group-hover:text-white transition-colors">
-                    {product.name}
-                  </h3>
-                  
-                  <p className="text-gothic-steel text-sm mb-4 leading-relaxed">
-                    {product.description}
-                  </p>
-
-                  {/* Rating */}
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          size={14}
-                          className={`${
-                            i < Math.floor(product.rating) 
-                              ? 'text-yellow-400 fill-current' 
-                              : 'text-gothic-steel'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-gothic-steel text-sm">
-                      {product.rating} ({product.reviews} reviews)
-                    </span>
-                  </div>
-
-                  {/* Price and Actions */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xl font-bold text-gothic-silver">
-                        ${product.price}
-                      </span>
-                      {product.originalPrice && (
-                        <span className="text-sm text-gothic-steel line-through">
-                          ${product.originalPrice}
-                        </span>
-                      )}
-                    </div>
-                    <button 
-                      disabled={!product.inStock}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                        product.inStock
-                          ? 'cyber-button hover:shadow-lg hover:shadow-gothic-silver/20'
-                          : 'bg-gothic-dark-gray text-gothic-steel cursor-not-allowed'
-                      }`}
-                    >
-                      {product.inStock ? 'Add to Cart' : 'Out of Stock'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            ))
+          )}
         </motion.div>
 
         {/* Cart Summary */}
@@ -282,9 +364,12 @@ export default function Merchandise() {
           transition={{ delay: 0.8, duration: 0.6 }}
           className="fixed bottom-6 right-6 z-50"
         >
-          <button className="cyber-button flex items-center space-x-2 shadow-lg shadow-gothic-silver/20">
+          <button 
+            onClick={() => router.push('/cart')}
+            className="cyber-button flex items-center space-x-2 shadow-lg shadow-gothic-silver/20"
+          >
             <ShoppingBag size={20} />
-            <span>Cart (0)</span>
+            <span>Cart ({cartCount})</span>
           </button>
         </motion.div>
       </div>

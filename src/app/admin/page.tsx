@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Shield, Crown, Cpu, Database, Users, Settings } from 'lucide-react';
+import { Shield, Crown, Cpu, Database, Users, Settings, ShoppingCart } from 'lucide-react';
 
 export default function AdminDashboard() {
   const adminSections = [
@@ -21,6 +21,14 @@ export default function AdminDashboard() {
       theme: 'silver', 
       icon: Cpu,
       features: ['Lament Fragment Archives', 'Neural Report Processing', 'Convergence Protocols', 'Data Stream Monitoring']
+    },
+    {
+      title: 'Black Ledger Goods',
+      description: 'Comprehensive merchandise management for the gothic marketplace',
+      href: '/admin/merchandise',
+      theme: 'dark',
+      icon: ShoppingCart,
+      features: ['Product Management', 'Custom Badge Creation', 'Inventory Tracking', 'Price & Image Control']
     }
   ];
 
@@ -50,7 +58,7 @@ export default function AdminDashboard() {
         </motion.div>
 
         {/* Admin Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
           {adminSections.map((section, index) => {
             const Icon = section.icon;
             return (
@@ -59,11 +67,23 @@ export default function AdminDashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.2 }}
-                className={`${section.theme === 'crimson' ? 'crimson-theme' : 'silver-theme'} p-8 rounded-lg tech-border hover:border-opacity-70 transition-all group`}
+                className={`${
+                  section.theme === 'crimson' ? 'crimson-theme' : 
+                  section.theme === 'silver' ? 'silver-theme' : 
+                  'gothic-container'
+                } p-8 rounded-lg tech-border hover:border-opacity-70 transition-all group`}
               >
                 <div className="mb-6">
-                  <Icon size={48} className={`${section.theme === 'crimson' ? 'text-gothic-crimson' : 'text-gothic-silver'} mb-4`} />
-                  <h2 className={`text-2xl font-gothic font-bold ${section.theme === 'crimson' ? 'text-gothic-crimson' : 'text-gothic-silver'} mb-2`}>
+                  <Icon size={48} className={`${
+                    section.theme === 'crimson' ? 'text-gothic-crimson' : 
+                    section.theme === 'silver' ? 'text-gothic-silver' : 
+                    'text-gothic-steel'
+                  } mb-4`} />
+                  <h2 className={`text-2xl font-gothic font-bold ${
+                    section.theme === 'crimson' ? 'text-gothic-crimson' : 
+                    section.theme === 'silver' ? 'text-gothic-silver' : 
+                    'text-gothic-steel'
+                  } mb-2`}>
                     {section.title}
                   </h2>
                   <p className="text-gothic-steel leading-relaxed">
@@ -73,13 +93,21 @@ export default function AdminDashboard() {
 
                 {/* Features List */}
                 <div className="mb-8">
-                  <h3 className={`text-lg font-medium ${section.theme === 'crimson' ? 'text-gothic-crimson' : 'text-gothic-silver'} mb-4`}>
+                  <h3 className={`text-lg font-medium ${
+                    section.theme === 'crimson' ? 'text-gothic-crimson' : 
+                    section.theme === 'silver' ? 'text-gothic-silver' : 
+                    'text-gothic-steel'
+                  } mb-4`}>
                     Core Functions:
                   </h3>
                   <ul className="space-y-2">
                     {section.features.map((feature, featureIndex) => (
                       <li key={featureIndex} className="flex items-center text-gothic-steel">
-                        <div className={`w-2 h-2 ${section.theme === 'crimson' ? 'bg-gothic-crimson' : 'bg-gothic-silver'} rounded-full mr-3`}></div>
+                        <div className={`w-2 h-2 ${
+                          section.theme === 'crimson' ? 'bg-gothic-crimson' : 
+                          section.theme === 'silver' ? 'bg-gothic-silver' : 
+                          'bg-gothic-steel'
+                        } rounded-full mr-3`}></div>
                         {feature}
                       </li>
                     ))}
@@ -94,14 +122,22 @@ export default function AdminDashboard() {
                     className={`w-full py-4 px-6 ${
                       section.theme === 'crimson' 
                         ? 'bg-gothic-crimson hover:bg-gothic-crimson/80' 
-                        : 'bg-gothic-silver hover:bg-gothic-silver/80'
+                        : section.theme === 'silver'
+                        ? 'bg-gothic-silver hover:bg-gothic-silver/80'
+                        : 'bg-gothic-steel hover:bg-gothic-steel/80'
                     } ${
                       section.theme === 'crimson' 
                         ? 'text-white' 
-                        : 'text-gothic-black'
+                        : section.theme === 'silver'
+                        ? 'text-gothic-black'
+                        : 'text-white'
                     } rounded-md font-medium text-center transition-colors cursor-pointer`}
                   >
-                    Access {section.theme === 'crimson' ? 'Crimson' : 'Silver'} Administration
+                    Access {
+                      section.theme === 'crimson' ? 'Crimson' : 
+                      section.theme === 'silver' ? 'Silver' : 
+                      'Merchandise'
+                    } Administration
                   </motion.div>
                 </Link>
               </motion.div>
