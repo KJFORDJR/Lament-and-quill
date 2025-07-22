@@ -250,6 +250,157 @@ export default function OrdersAdmin() {
   const pendingOrders = orders.filter(order => order.status === 'pending').length;
   const shippedOrders = orders.filter(order => order.status === 'shipped').length;
 
+  const exportToCSV = () => {
+    // Define CSV headers
+    const headers = [
+      'Order Number',
+      'Customer Name',
+      'Customer Email',
+      'Customer Username',
+      'Total Amount',
+      'Order Status',
+      'Payment Status',
+      'Payment Method',
+      'Items Count',
+      'Total Quantity',
+      'Item Details',
+      'Shipping Address',
+      'Stripe Payment ID',
+      'Order Date',
+      'Last Updated'
+    ];
+
+    // Convert orders to CSV rows
+    const csvData = filteredOrders.map(order => {
+      // Format item details
+      const itemDetails = order.order_items.map(item => 
+        `${item.merchandise.title} (${item.quantity}x$${item.unit_price.toFixed(2)}=${item.total_price.toFixed(2)})`
+      ).join('; ');
+
+      // Format shipping address
+      const shippingAddress = order.shipping_address ? 
+        `${order.shipping_address.firstName || ''} ${order.shipping_address.lastName || ''}, ${order.shipping_address.address1 || ''}, ${order.shipping_address.city || ''}, ${order.shipping_address.state || ''} ${order.shipping_address.zipCode || ''}`.trim() : 
+        'N/A';
+
+      return [
+        order.order_number,
+        order.user_profile?.display_name || order.user_profile?.username || 'N/A',
+        order.user_profile?.email || 'N/A',
+        order.user_profile?.username || 'N/A',
+        order.total_amount.toFixed(2),
+        order.status,
+        order.payment_status,
+        order.payment_method,
+        order.order_items.length,
+        order.order_items.reduce((sum, item) => sum + item.quantity, 0),
+        `"${itemDetails}"`, // Wrap in quotes to handle commas
+        `"${shippingAddress}"`, // Wrap in quotes to handle commas
+        order.stripe_payment_intent_id || 'N/A',
+        new Date(order.created_at).toLocaleString(),
+        new Date(order.updated_at).toLocaleString()
+      ];
+    });
+
+    // Combine headers and data
+    const csvContent = [headers, ...csvData]
+      .map(row => row.join(','))
+      .join('\n');
+
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `orders_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportDetailedCSV = () => {
+    // Create one row per order item for detailed analysis
+    const headers = [
+      'Order Number',
+      'Order Date',
+      'Customer Name',
+      'Customer Email',
+      'Customer Username',
+      'Order Total',
+      'Order Status',
+      'Payment Status',
+      'Payment Method',
+      'Stripe Payment ID',
+      'Item Name',
+      'Item Category',
+      'Item Quantity',
+      'Item Unit Price',
+      'Item Total Price',
+      'Shipping First Name',
+      'Shipping Last Name',
+      'Shipping Address',
+      'Shipping City',
+      'Shipping State',
+      'Shipping Zip',
+      'Shipping Email',
+      'Shipping Phone',
+      'Last Updated'
+    ];
+
+    const csvData: string[][] = [];
+
+    filteredOrders.forEach(order => {
+      order.order_items.forEach(item => {
+        csvData.push([
+          order.order_number,
+          new Date(order.created_at).toLocaleString(),
+          order.user_profile?.display_name || order.user_profile?.username || 'N/A',
+          order.user_profile?.email || 'N/A',
+          order.user_profile?.username || 'N/A',
+          order.total_amount.toFixed(2),
+          order.status,
+          order.payment_status,
+          order.payment_method,
+          order.stripe_payment_intent_id || 'N/A',
+          `"${item.merchandise.title}"`,
+          item.merchandise.category,
+          item.quantity.toString(),
+          item.unit_price.toFixed(2),
+          item.total_price.toFixed(2),
+          order.shipping_address?.firstName || 'N/A',
+          order.shipping_address?.lastName || 'N/A',
+          order.shipping_address?.address1 || 'N/A',
+          order.shipping_address?.city || 'N/A',
+          order.shipping_address?.state || 'N/A',
+          order.shipping_address?.zipCode || 'N/A',
+          order.shipping_address?.email || 'N/A',
+          order.shipping_address?.phone || 'N/A',
+          new Date(order.updated_at).toLocaleString()
+        ]);
+      });
+    });
+
+    // Combine headers and data
+    const csvContent = [headers, ...csvData]
+      .map(row => row.join(','))
+      .join('\n');
+
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `orders_detailed_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -342,8 +493,8 @@ export default function OrdersAdmin() {
           transition={{ delay: 0.2 }}
           className="gothic-container p-6 mb-6"
         >
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gothic-steel" size={16} />
               <input
                 type="text"
@@ -379,10 +530,27 @@ export default function OrdersAdmin() {
               <option value="refunded">Refunded</option>
             </select>
 
-            <button className="cyber-button-secondary flex items-center space-x-2">
-              <Download size={16} />
-              <span>Export</span>
-            </button>
+            <div className="flex space-x-2">
+              <button 
+                onClick={exportToCSV}
+                className="cyber-button-secondary flex items-center space-x-2"
+                disabled={filteredOrders.length === 0}
+                title="Export summary view - one row per order"
+              >
+                <Download size={16} />
+                <span>Export Summary</span>
+              </button>
+              
+              <button 
+                onClick={exportDetailedCSV}
+                className="cyber-button-secondary flex items-center space-x-2"
+                disabled={filteredOrders.length === 0}
+                title="Export detailed view - one row per item"
+              >
+                <Download size={16} />
+                <span>Export Detailed</span>
+              </button>
+            </div>
           </div>
         </motion.div>
 

@@ -94,14 +94,23 @@ export default function Home() {
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 1 }}
           >
-            <p className="mb-6">
-              In the shadow of tomorrow&apos;s decay, two cities stand as monuments to what was and what might yet be. 
-              The Crimson depths pulse with arterial urgency, while the Silver heights gleam with cold precision.
-            </p>
-            <p>
-              Here, in the liminal space between flesh and steel, between memory and prophecy, 
-              your story begins.
-            </p>
+          <p className="mb-6">
+            This isn&apos;t just a blog.
+            It&apos;s a living story, written in ink, blood, and choice.
+          </p>
+
+          <p className="mb-6">
+            Each entry is a page from a book that never ends, unfolding one act of justice at a time.
+            You don&apos;t just read it—you witness it.
+            And sometimes… you help write it.
+          </p>
+
+          <p>
+            Leave questions. Suggest threads.
+            Whispers in the margins might become tomorrow&apos;s headline.
+            Because every vigilante needs a city to listen.
+            Every story needs eyes brave enough to follow.
+          </p>
           </motion.div>
         </motion.div>
       </section>
