@@ -3,9 +3,13 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, User, Clock, BookOpen, Eye, X, Heart } from 'lucide-react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useReadModal } from '@/hooks/useReadModal';
 import { ReadModal } from '@/components/ReadModal';
+import { useAuth } from '@/contexts/AuthContext';
+
+const GUEST_ENTRY_LIMIT = 5;
 
 interface Fragment {
   id: string;
@@ -24,30 +28,37 @@ interface Fragment {
 export default function FragmentsOfLament() {
   const [fragments, setFragments] = useState<Fragment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { isOpen, selectedItem: readingFragment, openModal, closeModal, updateSelectedItem } = useReadModal<Fragment>();
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
   const [likingFragments, setLikingFragments] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const initializePage = async () => {
       // Check user authentication
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+      setIsAuthenticated(!!user);
       
       // Fetch fragments with user context
       await fetchFragmentsWithUser(user);
     };
     
     initializePage();
-  }, []);
+  }, [user]);
 
   const fetchFragmentsWithUser = async (currentUser: any = user) => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('lament_fragments_entries')
         .select('*')
         .eq('is_published', true)
         .order('published_at', { ascending: false });
+
+      // Apply limit for non-authenticated users
+      if (!currentUser) {
+        query = query.limit(GUEST_ENTRY_LIMIT);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching fragments:', error);
@@ -182,6 +193,39 @@ export default function FragmentsOfLament() {
             Each fragment carries the weight of digital memories and the whisper of awakening minds.
           </p>
         </motion.div>
+
+        {/* Authentication Notice for Non-Authenticated Users */}
+        {!isAuthenticated && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8 border border-amber-500/30 rounded-lg p-6"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(42, 42, 42, 0.9) 100%)'
+            }}
+          >
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+              <h3 className="text-lg font-tech text-amber-400">Limited Access Mode</h3>
+            </div>
+            <p className="text-amber-300 mb-4">
+              You are viewing the first {GUEST_ENTRY_LIMIT} fragments as a guest. 
+              <Link href="/login" className="text-green-400 hover:text-green-300 mx-1 underline transition-colors">
+                Login
+              </Link>
+              or
+              <Link href="/register" className="text-green-400 hover:text-green-300 mx-1 underline transition-colors">
+                Register
+              </Link>
+              to access the complete neural archives.
+            </p>
+            <div className="flex items-center space-x-2">
+              <div className="w-1 h-1 bg-amber-400 rounded-full"></div>
+              <span className="text-amber-400 font-tech text-sm">Guest Network Access</span>
+            </div>
+          </motion.div>
+        )}
 
         {/* Loading State */}
         {loading ? (

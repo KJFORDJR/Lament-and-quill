@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, Map, User, Eye, Edit3, Trash2 } from 'lucide-react';
+import { Search, Filter, Map, User, Eye, Edit3, Trash2, Lock, AlertCircle } from 'lucide-react';
 import { useReadModal } from '@/hooks/useReadModal';
 import { ReadModal } from '@/components/ReadModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 
 interface DossierEntry {
   id: string;
@@ -21,11 +24,14 @@ interface DossierEntry {
 }
 
 export default function Dossier() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [dossiers, setDossiers] = useState<DossierEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accessMessage, setAccessMessage] = useState('');
   
   // Modal state
   const { isOpen, selectedItem: readingDossier, openModal, closeModal } = useReadModal<DossierEntry>();
@@ -42,7 +48,16 @@ export default function Dossier() {
   useEffect(() => {
     const fetchDossiers = async () => {
       try {
-        const response = await fetch('/api/dossier');
+        // Get auth token if user is logged in
+        const headers: HeadersInit = {};
+        if (user) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+          }
+        }
+
+        const response = await fetch('/api/dossier', { headers });
         const result = await response.json();
         
         if (!response.ok) {
@@ -50,6 +65,8 @@ export default function Dossier() {
         }
         
         setDossiers(result.data || []);
+        setIsAuthenticated(result.isAuthenticated || false);
+        setAccessMessage(result.message || '');
       } catch (err: any) {
         console.error('Error fetching dossiers:', err);
         setError(err.message || 'Failed to load dossiers');
@@ -59,7 +76,7 @@ export default function Dossier() {
     };
 
     fetchDossiers();
-  }, []);
+  }, [user]);
 
   const filteredDossiers = dossiers.filter(dossier => {
     const matchesSearch = dossier.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,6 +107,37 @@ export default function Dossier() {
             Navigate the complex web of connections that bind the twin realms together.
           </p>
         </motion.div>
+
+        {/* Authentication Notice */}
+        {!isAuthenticated && accessMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.6 }}
+            className="mb-8"
+          >
+            <div className="max-w-4xl mx-auto bg-gothic-red/10 border border-gothic-red/30 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <Lock className="text-gothic-red flex-shrink-0" size={20} />
+                <div className="flex-1">
+                  <p className="text-gothic-silver">
+                    <strong>Limited Access:</strong> {accessMessage}
+                  </p>
+                  <p className="text-gothic-steel text-sm mt-1">
+                    <Link href="/login" className="text-gothic-crimson hover:underline">
+                      Login
+                    </Link>
+                    {" or "}
+                    <Link href="/register" className="text-gothic-crimson hover:underline">
+                      Register
+                    </Link>
+                    {" "}to access classified dossiers and restricted content.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Search and Filter Controls */}
         <motion.div

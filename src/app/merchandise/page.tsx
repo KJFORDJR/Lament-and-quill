@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ShoppingBag, Star, Eye, Heart, Filter } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
@@ -182,6 +183,39 @@ export default function Merchandise() {
           </div>
         </motion.div>
 
+        {/* Authentication Notice for Non-Authenticated Users */}
+        {!user && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8 border border-amber-500/30 rounded-lg p-6"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(42, 42, 42, 0.9) 100%)'
+            }}
+          >
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+              <h3 className="text-lg font-tech text-amber-400">Guest Shopping Mode</h3>
+            </div>
+            <p className="text-amber-300 mb-4">
+              You can browse our merchandise catalog, but purchasing requires an account. 
+              <Link href="/login" className="text-gothic-silver hover:text-white mx-1 underline transition-colors">
+                Login
+              </Link>
+              or
+              <Link href="/register" className="text-gothic-silver hover:text-white mx-1 underline transition-colors">
+                Register
+              </Link>
+              to access the shadow markets.
+            </p>
+            <div className="flex items-center space-x-2">
+              <div className="w-1 h-1 bg-amber-400 rounded-full"></div>
+              <span className="text-amber-400 font-tech text-sm">Guest Market Access</span>
+            </div>
+          </motion.div>
+        )}
+
         {/* Filters and Sort */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -337,20 +371,32 @@ export default function Merchandise() {
                           ${product.price.toFixed(2)}
                         </span>
                       </div>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(product.id);
-                        }}
-                        disabled={product.stock_quantity === 0}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                          product.stock_quantity > 0
-                            ? 'cyber-button hover:shadow-lg hover:shadow-gothic-silver/20'
-                            : 'bg-gothic-dark-gray text-gothic-steel cursor-not-allowed'
-                        }`}
-                      >
-                        {product.stock_quantity > 0 ? 'Add to Cart' : 'Out of Stock'}
-                      </button>
+                      {user ? (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(product.id);
+                          }}
+                          disabled={product.stock_quantity === 0}
+                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                            product.stock_quantity > 0
+                              ? 'cyber-button hover:shadow-lg hover:shadow-gothic-silver/20'
+                              : 'bg-gothic-dark-gray text-gothic-steel cursor-not-allowed'
+                          }`}
+                        >
+                          {product.stock_quantity > 0 ? 'Add to Cart' : 'Out of Stock'}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push('/login');
+                          }}
+                          className="px-4 py-2 rounded-lg font-medium bg-amber-600 hover:bg-amber-700 text-white transition-all"
+                        >
+                          Login to Purchase
+                        </button>
+                      )}
                     </div>
                     
                     {/* Stock indicator */}
