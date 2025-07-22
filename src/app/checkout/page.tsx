@@ -20,6 +20,7 @@ interface CartItem {
     image_url: string | null;
     stock_quantity: number;
     category: string;
+    allow_customer_notes: boolean;
   };
 }
 
@@ -61,6 +62,7 @@ export default function CheckoutPage() {
   const [billingAddressSame, setBillingAddressSame] = useState(true);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string>('');
+  const [customerNotes, setCustomerNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (userLoading) return; // Wait for auth to load
@@ -104,7 +106,8 @@ export default function CheckoutPage() {
             price,
             image_url,
             stock_quantity,
-            category
+            category,
+            allow_customer_notes
           )
         `)
         .eq('user_id', user.id);
@@ -122,6 +125,13 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCustomerNoteChange = (merchandiseId: string, note: string) => {
+    setCustomerNotes(prev => ({
+      ...prev,
+      [merchandiseId]: note
+    }));
   };
 
   const handleShippingSubmit = (e: React.FormEvent) => {
@@ -217,6 +227,7 @@ export default function CheckoutPage() {
         quantity: item.quantity,
         unit_price: item.merchandise.price,
         total_price: item.merchandise.price * item.quantity,
+        customer_notes: item.merchandise.allow_customer_notes ? customerNotes[item.merchandise_id] || null : null,
         merchandise_snapshot: {
           title: item.merchandise.title,
           price: item.merchandise.price,
@@ -678,29 +689,51 @@ export default function CheckoutPage() {
                     <h3 className="text-lg font-medium text-gothic-silver mb-3">Order Items</h3>
                     <div className="space-y-3">
                       {cartItems.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between bg-gothic-dark-gray/20 p-4 rounded-lg">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-gothic-dark-gray rounded overflow-hidden flex-shrink-0">
-                              {item.merchandise.image_url ? (
-                                <img
-                                  src={item.merchandise.image_url}
-                                  alt={item.merchandise.title}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gothic-steel">
-                                  <Package size={20} />
-                                </div>
-                              )}
+                        <div key={item.id} className="bg-gothic-dark-gray/20 p-4 rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-12 h-12 bg-gothic-dark-gray rounded overflow-hidden flex-shrink-0">
+                                {item.merchandise.image_url ? (
+                                  <img
+                                    src={item.merchandise.image_url}
+                                    alt={item.merchandise.title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gothic-steel">
+                                    <Package size={20} />
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-gothic-silver font-medium">{item.merchandise.title}</p>
+                                <p className="text-gothic-steel text-sm">Quantity: {item.quantity}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-gothic-silver font-medium">{item.merchandise.title}</p>
-                              <p className="text-gothic-steel text-sm">Quantity: {item.quantity}</p>
-                            </div>
+                            <p className="text-gothic-silver font-medium">
+                              ${(item.merchandise.price * item.quantity).toFixed(2)}
+                            </p>
                           </div>
-                          <p className="text-gothic-silver font-medium">
-                            ${(item.merchandise.price * item.quantity).toFixed(2)}
-                          </p>
+                          
+                          {/* Customer Notes Input */}
+                          {item.merchandise.allow_customer_notes && (
+                            <div className="mt-3 pt-3 border-t border-gothic-dark-gray">
+                              <label className="block text-sm font-medium text-gothic-steel mb-2">
+                                Add custom notes for this item (optional):
+                              </label>
+                              <textarea
+                                value={customerNotes[item.merchandise_id] || ''}
+                                onChange={(e) => handleCustomerNoteChange(item.merchandise_id, e.target.value)}
+                                placeholder="Enter any special instructions or customization requests..."
+                                className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded-md px-3 py-2 text-white placeholder-gothic-steel focus:outline-none focus:border-gothic-silver resize-none"
+                                rows={3}
+                                maxLength={500}
+                              />
+                              <div className="text-xs text-gothic-steel mt-1">
+                                {(customerNotes[item.merchandise_id] || '').length}/500 characters
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

@@ -19,9 +19,12 @@ import {
   CheckCircle,
   Clock,
   X,
+  MessageSquare,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
+import { useReadModal } from '@/hooks/useReadModal';
+import Modal from '@/components/Modal';
 
 interface Order {
   id: string;
@@ -45,6 +48,7 @@ interface Order {
     quantity: number;
     unit_price: number;
     total_price: number;
+    customer_notes?: string | null;
     merchandise: {
       title: string;
       category: string;
@@ -61,8 +65,10 @@ export default function OrdersAdmin() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [updating, setUpdating] = useState(false);
+  
+  // Modern modal system
+  const { isOpen, selectedItem: selectedOrder, openModal, closeModal } = useReadModal<Order>();
 
   useEffect(() => {
     if (profile && profile.user_role !== "admin") {
@@ -98,6 +104,7 @@ export default function OrdersAdmin() {
             quantity,
             unit_price,
             total_price,
+            customer_notes,
             merchandise (
               title,
               category
@@ -170,7 +177,7 @@ export default function OrdersAdmin() {
       if (selectedOrder?.id === orderId) {
         const updatedOrder = orders.find((o) => o.id === orderId);
         if (updatedOrder) {
-          setSelectedOrder({ ...updatedOrder, status: newStatus });
+          openModal({ ...updatedOrder, status: newStatus });
         }
       }
     } catch (error) {
@@ -199,7 +206,7 @@ export default function OrdersAdmin() {
       if (selectedOrder?.id === orderId) {
         const updatedOrder = orders.find((o) => o.id === orderId);
         if (updatedOrder) {
-          setSelectedOrder({ ...updatedOrder, payment_status: newStatus });
+          openModal({ ...updatedOrder, payment_status: newStatus });
         }
       }
     } catch (error) {
@@ -716,7 +723,7 @@ export default function OrdersAdmin() {
                     </td>
                     <td className="py-4 px-6">
                       <button
-                        onClick={() => setSelectedOrder(order)}
+                        onClick={() => openModal(order)}
                         className="cyber-button-secondary flex items-center space-x-1"
                       >
                         <Eye size={14} />
@@ -739,183 +746,181 @@ export default function OrdersAdmin() {
 
         {/* Order Detail Modal */}
         {selectedOrder && (
-          <div className="fixed inset-0 bg-gothic-black/80 flex items-center justify-center z-50 p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="gothic-container max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-            >
-              <div className="p-6">
-                {/* Modal Header */}
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-2xl font-gothic font-bold text-gothic-silver">
-                      Order Details
-                    </h2>
+          <Modal
+            isOpen={isOpen}
+            onClose={closeModal}
+            title={`Order Details - ${selectedOrder.order_number}`}
+            size="xl"
+          >
+            {/* Order Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {/* Customer Info */}
+              <div>
+                <h3 className="text-lg font-medium text-gothic-silver mb-3">
+                  Customer
+                </h3>
+                <div className="space-y-2">
+                  <p className="text-gothic-steel">
+                    <span className="font-medium">Name:</span>{" "}
+                    {selectedOrder.user_profile?.display_name ||
+                      selectedOrder.user_profile?.username ||
+                      "N/A"}
+                  </p>
+                  <p className="text-gothic-steel">
+                    <span className="font-medium">Email:</span>{" "}
+                    {selectedOrder.user_profile?.email || "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Order Info */}
+              <div>
+                <h3 className="text-lg font-medium text-gothic-silver mb-3">
+                  Order Info
+                </h3>
+                <div className="space-y-2">
+                  <p className="text-gothic-steel">
+                    <span className="font-medium">Created:</span>{" "}
+                    {new Date(selectedOrder.created_at).toLocaleString()}
+                  </p>
+                  <p className="text-gothic-steel">
+                    <span className="font-medium">Updated:</span>{" "}
+                    {new Date(selectedOrder.updated_at).toLocaleString()}
+                  </p>
+                  <p className="text-gothic-steel">
+                    <span className="font-medium">Payment Method:</span>{" "}
+                    {selectedOrder.payment_method}
+                  </p>
+                  {selectedOrder.stripe_payment_intent_id && (
                     <p className="text-gothic-steel">
-                      {selectedOrder.order_number}
+                      <span className="font-medium">Stripe ID:</span>{" "}
+                      {selectedOrder.stripe_payment_intent_id}
                     </p>
-                  </div>
-                  <button
-                    onClick={() => setSelectedOrder(null)}
-                    className="cyber-button-secondary"
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Status Management */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <h3 className="text-lg font-medium text-gothic-silver mb-3">
+                  Order Status
+                </h3>
+                <select
+                  value={selectedOrder.status}
+                  onChange={(e) =>
+                    updateOrderStatus(selectedOrder.id, e.target.value)
+                  }
+                  disabled={updating}
+                  className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="processing">Processing</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-medium text-gothic-silver mb-3">
+                  Payment Status
+                </h3>
+                <select
+                  value={selectedOrder.payment_status}
+                  onChange={(e) =>
+                    updatePaymentStatus(selectedOrder.id, e.target.value)
+                  }
+                  disabled={updating}
+                  className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="failed">Failed</option>
+                  <option value="refunded">Refunded</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Order Items */}
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-gothic-silver mb-3">
+                Order Items
+              </h3>
+              <div className="space-y-3">
+                {selectedOrder.order_items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="p-4 bg-gothic-dark-gray/20 rounded-lg"
                   >
-                    <X size={16} />
-                  </button>
-                </div>
-
-                {/* Order Info Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  {/* Customer Info */}
-                  <div>
-                    <h3 className="text-lg font-medium text-gothic-silver mb-3">
-                      Customer
-                    </h3>
-                    <div className="space-y-2">
-                      <p className="text-gothic-steel">
-                        <span className="font-medium">Name:</span>{" "}
-                        {selectedOrder.user_profile?.display_name ||
-                          selectedOrder.user_profile?.username ||
-                          "N/A"}
-                      </p>
-                      <p className="text-gothic-steel">
-                        <span className="font-medium">Email:</span>{" "}
-                        {selectedOrder.user_profile?.email || "N/A"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Order Info */}
-                  <div>
-                    <h3 className="text-lg font-medium text-gothic-silver mb-3">
-                      Order Info
-                    </h3>
-                    <div className="space-y-2">
-                      <p className="text-gothic-steel">
-                        <span className="font-medium">Created:</span>{" "}
-                        {new Date(selectedOrder.created_at).toLocaleString()}
-                      </p>
-                      <p className="text-gothic-steel">
-                        <span className="font-medium">Updated:</span>{" "}
-                        {new Date(selectedOrder.updated_at).toLocaleString()}
-                      </p>
-                      <p className="text-gothic-steel">
-                        <span className="font-medium">Payment Method:</span>{" "}
-                        {selectedOrder.payment_method}
-                      </p>
-                      {selectedOrder.stripe_payment_intent_id && (
-                        <p className="text-gothic-steel">
-                          <span className="font-medium">Stripe ID:</span>{" "}
-                          {selectedOrder.stripe_payment_intent_id}
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="text-gothic-silver font-medium">
+                          {item.merchandise.title}
+                        </h4>
+                        <p className="text-gothic-steel text-sm">
+                          {item.merchandise.category} • Qty: {item.quantity} •
+                          Unit: ${item.unit_price.toFixed(2)}
                         </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status Management */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <h3 className="text-lg font-medium text-gothic-silver mb-3">
-                      Order Status
-                    </h3>
-                    <select
-                      value={selectedOrder.status}
-                      onChange={(e) =>
-                        updateOrderStatus(selectedOrder.id, e.target.value)
-                      }
-                      disabled={updating}
-                      className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="processing">Processing</option>
-                      <option value="shipped">Shipped</option>
-                      <option value="delivered">Delivered</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-medium text-gothic-silver mb-3">
-                      Payment Status
-                    </h3>
-                    <select
-                      value={selectedOrder.payment_status}
-                      onChange={(e) =>
-                        updatePaymentStatus(selectedOrder.id, e.target.value)
-                      }
-                      disabled={updating}
-                      className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="paid">Paid</option>
-                      <option value="failed">Failed</option>
-                      <option value="refunded">Refunded</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Order Items */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium text-gothic-silver mb-3">
-                    Order Items
-                  </h3>
-                  <div className="space-y-3">
-                    {selectedOrder.order_items.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex justify-between items-center p-4 bg-gothic-dark-gray/20 rounded-lg"
-                      >
-                        <div>
-                          <h4 className="text-gothic-silver font-medium">
-                            {item.merchandise.title}
-                          </h4>
-                          <p className="text-gothic-steel text-sm">
-                            {item.merchandise.category} • Qty: {item.quantity} •
-                            Unit: ${item.unit_price.toFixed(2)}
-                          </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-gothic-silver font-medium">
+                          ${item.total_price.toFixed(2)}
                         </div>
-                        <div className="text-right">
-                          <div className="text-gothic-silver font-medium">
-                            ${item.total_price.toFixed(2)}
+                      </div>
+                    </div>
+                    
+                    {/* Customer Notes */}
+                    {item.customer_notes && (
+                      <div className="mt-3 pt-3 border-t border-gothic-dark-gray">
+                        <div className="flex items-start gap-2">
+                          <MessageSquare size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-blue-400 mb-1">
+                              Customer Notes:
+                            </p>
+                            <p className="text-sm text-gothic-steel bg-gothic-dark-gray/40 p-2 rounded border-l-2 border-blue-400">
+                              {item.customer_notes}
+                            </p>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
-
-                  <div className="mt-4 pt-4 border-t border-gothic-dark-gray">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-medium text-gothic-silver">
-                        Total:
-                      </span>
-                      <span className="text-xl font-bold text-gothic-silver">
-                        ${selectedOrder.total_amount.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Shipping Address */}
-                {selectedOrder.shipping_address && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-medium text-gothic-silver mb-3">
-                      Shipping Address
-                    </h3>
-                    <div className="bg-gothic-dark-gray/20 p-4 rounded-lg">
-                      <pre className="text-gothic-steel whitespace-pre-wrap">
-                        {JSON.stringify(
-                          selectedOrder.shipping_address,
-                          null,
-                          2
-                        )}
-                      </pre>
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
-            </motion.div>
-          </div>
+
+              <div className="mt-4 pt-4 border-t border-gothic-dark-gray">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-medium text-gothic-silver">
+                    Total:
+                  </span>
+                  <span className="text-xl font-bold text-gothic-silver">
+                    ${selectedOrder.total_amount.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Shipping Address */}
+            {selectedOrder.shipping_address && (
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-gothic-silver mb-3">
+                  Shipping Address
+                </h3>
+                <div className="bg-gothic-dark-gray/20 p-4 rounded-lg">
+                  <pre className="text-gothic-steel whitespace-pre-wrap">
+                    {JSON.stringify(
+                      selectedOrder.shipping_address,
+                      null,
+                      2
+                    )}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </Modal>
         )}
       </div>
     </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Edit2, Trash2, Eye, Package, ShoppingCart, DollarSign, Tag, Star } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Eye, Package, ShoppingCart, DollarSign, Tag, Star, MessageSquare } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 
@@ -20,6 +20,7 @@ interface MerchandiseItem {
   is_active: boolean;
   stock_quantity: number;
   category: string;
+  allow_customer_notes: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -106,6 +107,25 @@ export default function MerchandiseAdmin() {
       );
     } catch (error) {
       console.error('Error updating active status:', error);
+    }
+  };
+
+  const toggleCustomerNotes = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('merchandise')
+        .update({ allow_customer_notes: !currentStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      setMerchandise(prev => 
+        prev.map(item => 
+          item.id === id ? { ...item, allow_customer_notes: !currentStatus } : item
+        )
+      );
+    } catch (error) {
+      console.error('Error updating customer notes status:', error);
     }
   };
 
@@ -370,6 +390,20 @@ export default function MerchandiseAdmin() {
                   >
                     <Eye size={14} />
                     {item.is_active ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 mt-2">
+                  <button
+                    onClick={() => toggleCustomerNotes(item.id, item.allow_customer_notes)}
+                    className={`w-full px-3 py-2 rounded text-sm transition-colors flex items-center justify-center gap-2 ${
+                      item.allow_customer_notes
+                        ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                        : 'bg-gothic-dark-gray hover:bg-gothic-dark-gray/80 text-gothic-steel'
+                    }`}
+                  >
+                    <MessageSquare size={14} />
+                    {item.allow_customer_notes ? 'Notes: ON' : 'Notes: OFF'}
                   </button>
                 </div>
               </motion.div>
