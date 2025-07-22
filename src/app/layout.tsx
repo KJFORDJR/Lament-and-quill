@@ -3,6 +3,7 @@ import './globals.css'
 import { Navigation } from '@/components/Navigation'
 import { Footer } from '@/components/Footer'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ModalProvider } from '@/contexts/ModalContext'
 import { MaintenanceWrapper } from '@/components/MaintenanceWrapper'
 
 export const metadata: Metadata = {
@@ -19,14 +20,16 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-gothic-black text-gothic-silver font-noir">
         <AuthProvider>
-          <MaintenanceWrapper>
-            <div className="tech-grid bg-tech-grid opacity-10 fixed inset-0 pointer-events-none" />
-            <Navigation />
-            <main className="relative z-10 min-h-screen">
-              {children}
-            </main>
-            <Footer />
-          </MaintenanceWrapper>
+          <ModalProvider>
+            <MaintenanceWrapper>
+              <div className="tech-grid bg-tech-grid opacity-10 fixed inset-0 pointer-events-none" />
+              <Navigation />
+              <main className="relative z-10 min-h-screen">
+                {children}
+              </main>
+              <Footer />
+            </MaintenanceWrapper>
+          </ModalProvider>
         </AuthProvider>
       </body>
     </html>

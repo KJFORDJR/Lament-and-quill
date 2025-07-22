@@ -59,57 +59,144 @@ export default function Modal({
       // Store the currently focused element
       lastActiveElement.current = document.activeElement as HTMLElement;
       
-      // Disable body scroll
+      // Disable body scroll with better iOS support
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
       
-      // Focus the modal
-      setTimeout(() => {
-        modalRef.current?.focus();
-      }, 100);
+      // Focus the modal after a short delay to ensure it's rendered
+      const focusTimer = setTimeout(() => {
+        const modal = modalRef.current;
+        if (modal) {
+          // Try to focus the first focusable element, fallback to modal itself
+          const focusableElements = modal.querySelectorAll(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+          const firstFocusable = focusableElements[0] as HTMLElement;
+          if (firstFocusable) {
+            firstFocusable.focus();
+          } else {
+            modal.focus();
+          }
+        }
+      }, 150);
+
+      return () => clearTimeout(focusTimer);
     } else {
-      // Restore body scroll
-      document.body.style.overflow = 'unset';
+      // Restore body scroll and position
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
       
-      // Restore focus to last active element
-      if (lastActiveElement.current) {
-        lastActiveElement.current.focus();
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
       }
+      
+      // Restore focus to last active element with a delay to ensure modal is closed
+      setTimeout(() => {
+        if (lastActiveElement.current && typeof lastActiveElement.current.focus === 'function') {
+          try {
+            lastActiveElement.current.focus();
+          } catch (error) {
+            // Fallback if focus fails
+            console.warn('Could not restore focus to previous element:', error);
+          }
+        }
+      }, 100);
     }
 
+    // Cleanup function
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
     };
   }, [isOpen]);
 
-  // Keyboard event listeners
+  // Keyboard event listeners and additional accessibility
   useEffect(() => {
     if (isOpen) {
+      // Add event listeners
       document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
+      
+      // Prevent background scroll on mobile/touch devices
+      const preventDefault = (e: TouchEvent) => {
+        if (e.target && !modalRef.current?.contains(e.target as Node)) {
+          e.preventDefault();
+        }
+      };
+      
+      document.addEventListener('touchmove', preventDefault, { passive: false });
+      
+      // Hide content from screen readers
+      const appElements = document.querySelectorAll('body > *:not([role="dialog"])');
+      appElements.forEach(element => {
+        if (element !== modalRef.current?.parentElement) {
+          element.setAttribute('aria-hidden', 'true');
+        }
+      });
+
+      return () => {
+        document.removeEventListener('keydown', handleEscape);
+        document.removeEventListener('touchmove', preventDefault);
+        
+        // Restore screen reader access
+        appElements.forEach(element => {
+          element.removeAttribute('aria-hidden');
+        });
+      };
     }
   }, [isOpen, handleEscape]);
 
-  // Focus trap
+  // Enhanced focus trap
   const handleTabKey = useCallback((event: React.KeyboardEvent) => {
     if (event.key !== 'Tab') return;
 
     const modal = modalRef.current;
     if (!modal) return;
 
+    // Get all focusable elements within the modal
     const focusableElements = modal.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
     );
-    const firstElement = focusableElements[0] as HTMLElement;
-    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+    
+    const focusableArray = Array.from(focusableElements) as HTMLElement[];
+    const firstElement = focusableArray[0];
+    const lastElement = focusableArray[focusableArray.length - 1];
 
+    // If no focusable elements, prevent tabbing
+    if (focusableArray.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    // Handle forward tab on last element
     if (!event.shiftKey && document.activeElement === lastElement) {
       firstElement?.focus();
       event.preventDefault();
+      return;
     }
 
+    // Handle backward tab on first element
     if (event.shiftKey && document.activeElement === firstElement) {
       lastElement?.focus();
       event.preventDefault();
+      return;
+    }
+
+    // Handle case where focus is outside the modal (shouldn't happen but safety check)
+    if (!modal.contains(document.activeElement)) {
+      event.preventDefault();
+      if (event.shiftKey) {
+        lastElement?.focus();
+      } else {
+        firstElement?.focus();
+      }
     }
   }, []);
 
@@ -192,6 +279,10 @@ export default function Modal({
             onKeyDown={handleTabKey}
             tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+            aria-describedby="modal-content"
           >
             {/* Modal Header */}
             <div className={`
