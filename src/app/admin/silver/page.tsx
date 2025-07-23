@@ -7,6 +7,7 @@ import {
   Settings, MessageCircle, FileText, Shield, BookOpen, Database, Megaphone 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { useReadModal } from '@/hooks/useReadModal';
 import { useFormModal } from '@/hooks/useModalHooks';
 import { FormModal, useConfirmModalComponent } from '@/components/ModalComponents';
@@ -15,11 +16,16 @@ import { ReadModal } from '@/components/ReadModal';
 interface LamentFragment {
   id: string;
   title: string;
+  excerpt?: string;
   content: string;
   author_name: string;
   category: string;
+  read_time?: string;
   is_published: boolean;
+  published_at?: string;
+  created_by?: string;
   created_at: string;
+  updated_at: string;
 }
 
 interface LamentSubmission {
@@ -36,19 +42,24 @@ interface Announcement {
   id: string;
   title: string;
   content: string;
-  category: string;
-  is_published: boolean;
+  author_id: string;
+  priority: number;
+  is_active: boolean;
   created_at: string;
 }
 
 interface DossierEntry {
   id: string;
   title: string;
+  summary: string;
   content: string;
-  author_name: string;
-  category: string;
+  type: string;
+  city: string;
+  classification: string;
+  image_url?: string;
   is_published: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 interface AdminStats {
@@ -60,6 +71,7 @@ interface AdminStats {
 }
 
 export default function SilverAdminPanel() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [fragments, setFragments] = useState<LamentFragment[]>([]);
   const [submissions, setSubmissions] = useState<LamentSubmission[]>([]);
@@ -98,7 +110,7 @@ export default function SilverAdminPanel() {
   const loadFragments = async () => {
     try {
       const { data, error } = await supabase
-        .from('lament_fragments')
+        .from('lament_fragments_entries')
         .select('*')
         .order('created_at', { ascending: false });
       
@@ -115,7 +127,7 @@ export default function SilverAdminPanel() {
         .from('lament_submissions')
         .select(`
           *,
-          users!inner(username)
+          profiles(username)
         `)
         .order('created_at', { ascending: false });
       
@@ -123,7 +135,7 @@ export default function SilverAdminPanel() {
       
       const submissionsWithAuthor = data?.map(submission => ({
         ...submission,
-        author_name: submission.users?.username || 'Unknown'
+        author_name: submission.profiles?.username || 'Unknown'
       })) || [];
       
       setSubmissions(submissionsWithAuthor);
@@ -163,9 +175,9 @@ export default function SilverAdminPanel() {
   const loadStats = async () => {
     try {
       const [fragmentsCount, submissionsCount, usersCount, announcementsCount, dossiersCount] = await Promise.all([
-        supabase.from('lament_fragments').select('*', { count: 'exact', head: true }),
+        supabase.from('lament_fragments_entries').select('*', { count: 'exact', head: true }),
         supabase.from('lament_submissions').select('*', { count: 'exact', head: true }),
-        supabase.from('users').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('announcements').select('*', { count: 'exact', head: true }),
         supabase.from('dossier_entries').select('*', { count: 'exact', head: true })
       ]);
@@ -187,11 +199,14 @@ export default function SilverAdminPanel() {
     fragmentFormModal.openModal({
       id: '',
       title: '',
+      excerpt: '',
       content: '',
       author_name: '',
-      category: 'Lament',
+      category: 'Transmissions',
+      read_time: '',
       is_published: false,
-      created_at: ''
+      created_at: '',
+      updated_at: ''
     });
   };
 
@@ -207,22 +222,25 @@ export default function SilverAdminPanel() {
       
       const fragmentData = {
         title: fragmentFormModal.formData.title,
+        excerpt: fragmentFormModal.formData.excerpt,
         content: fragmentFormModal.formData.content,
         author_name: fragmentFormModal.formData.author_name,
         category: fragmentFormModal.formData.category,
-        is_published: fragmentFormModal.formData.is_published
+        read_time: fragmentFormModal.formData.read_time,
+        is_published: fragmentFormModal.formData.is_published,
+        created_by: user?.id
       };
 
       if (fragmentFormModal.formData.id) {
         const { error } = await supabase
-          .from('lament_fragments')
+          .from('lament_fragments_entries')
           .update(fragmentData)
           .eq('id', fragmentFormModal.formData.id);
         
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('lament_fragments')
+          .from('lament_fragments_entries')
           .insert([fragmentData]);
         
         if (error) throw error;
@@ -248,7 +266,7 @@ export default function SilverAdminPanel() {
       onConfirm: async () => {
         try {
           const { error } = await supabase
-            .from('lament_fragments')
+            .from('lament_fragments_entries')
             .delete()
             .eq('id', fragmentId);
 
@@ -299,8 +317,9 @@ export default function SilverAdminPanel() {
       id: '',
       title: '',
       content: '',
-      category: 'General',
-      is_published: false,
+      author_id: user?.id || '',
+      priority: 0,
+      is_active: true,
       created_at: ''
     });
   };
@@ -318,8 +337,9 @@ export default function SilverAdminPanel() {
       const announcementData = {
         title: announcementFormModal.formData.title,
         content: announcementFormModal.formData.content,
-        category: announcementFormModal.formData.category,
-        is_published: announcementFormModal.formData.is_published
+        author_id: user?.id,
+        priority: announcementFormModal.formData.priority || 0,
+        is_active: announcementFormModal.formData.is_active || false
       };
 
       if (announcementFormModal.formData.id) {
@@ -376,11 +396,15 @@ export default function SilverAdminPanel() {
     dossierFormModal.openModal({
       id: '',
       title: '',
+      summary: '',
       content: '',
-      author_name: '',
-      category: 'Investigation',
+      type: 'character',
+      city: 'silver',
+      classification: 'public',
+      image_url: '',
       is_published: false,
-      created_at: ''
+      created_at: '',
+      updated_at: ''
     });
   };
 
@@ -396,9 +420,12 @@ export default function SilverAdminPanel() {
       
       const dossierData = {
         title: dossierFormModal.formData.title,
+        summary: dossierFormModal.formData.summary,
         content: dossierFormModal.formData.content,
-        author_name: dossierFormModal.formData.author_name,
-        category: dossierFormModal.formData.category,
+        type: dossierFormModal.formData.type,
+        city: dossierFormModal.formData.city || 'silver',
+        classification: dossierFormModal.formData.classification || 'public',
+        image_url: dossierFormModal.formData.image_url,
         is_published: dossierFormModal.formData.is_published
       };
 
@@ -546,6 +573,7 @@ export default function SilverAdminPanel() {
               <th className="text-left p-4 text-gothic-silver">Title</th>
               <th className="text-left p-4 text-gothic-silver">Author</th>
               <th className="text-left p-4 text-gothic-silver">Category</th>
+              <th className="text-left p-4 text-gothic-silver">Read Time</th>
               <th className="text-left p-4 text-gothic-silver">Status</th>
               <th className="text-left p-4 text-gothic-silver">Created</th>
               <th className="text-left p-4 text-gothic-silver">Actions</th>
@@ -557,6 +585,7 @@ export default function SilverAdminPanel() {
                 <td className="p-4 text-gothic-silver/90">{fragment.title}</td>
                 <td className="p-4 text-gothic-silver/70">{fragment.author_name}</td>
                 <td className="p-4 text-gothic-silver/70">{fragment.category}</td>
+                <td className="p-4 text-gothic-silver/70">{fragment.read_time || 'N/A'}</td>
                 <td className="p-4">
                   <span className={`px-2 py-1 rounded text-xs ${
                     fragment.is_published 
@@ -677,7 +706,7 @@ export default function SilverAdminPanel() {
           <thead>
             <tr className="border-b border-gothic-silver/20">
               <th className="text-left p-4 text-gothic-silver">Title</th>
-              <th className="text-left p-4 text-gothic-silver">Category</th>
+              <th className="text-left p-4 text-gothic-silver">Priority</th>
               <th className="text-left p-4 text-gothic-silver">Status</th>
               <th className="text-left p-4 text-gothic-silver">Created</th>
               <th className="text-left p-4 text-gothic-silver">Actions</th>
@@ -687,14 +716,14 @@ export default function SilverAdminPanel() {
             {announcements.map((announcement) => (
               <tr key={announcement.id} className="border-b border-gothic-silver/10 hover:bg-gothic-steel/10">
                 <td className="p-4 text-gothic-silver/90">{announcement.title}</td>
-                <td className="p-4 text-gothic-silver/70">{announcement.category}</td>
+                <td className="p-4 text-gothic-silver/70">{announcement.priority}</td>
                 <td className="p-4">
                   <span className={`px-2 py-1 rounded text-xs ${
-                    announcement.is_published 
+                    announcement.is_active 
                       ? 'bg-green-500/20 text-green-400' 
                       : 'bg-red-500/20 text-red-400'
                   }`}>
-                    {announcement.is_published ? 'Published' : 'Draft'}
+                    {announcement.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
                 <td className="p-4 text-gothic-silver/70">
@@ -742,8 +771,9 @@ export default function SilverAdminPanel() {
           <thead>
             <tr className="border-b border-gothic-silver/20">
               <th className="text-left p-4 text-gothic-silver">Title</th>
-              <th className="text-left p-4 text-gothic-silver">Author</th>
-              <th className="text-left p-4 text-gothic-silver">Category</th>
+              <th className="text-left p-4 text-gothic-silver">Type</th>
+              <th className="text-left p-4 text-gothic-silver">City</th>
+              <th className="text-left p-4 text-gothic-silver">Classification</th>
               <th className="text-left p-4 text-gothic-silver">Status</th>
               <th className="text-left p-4 text-gothic-silver">Created</th>
               <th className="text-left p-4 text-gothic-silver">Actions</th>
@@ -753,8 +783,9 @@ export default function SilverAdminPanel() {
             {dossiers.map((dossier) => (
               <tr key={dossier.id} className="border-b border-gothic-silver/10 hover:bg-gothic-steel/10">
                 <td className="p-4 text-gothic-silver/90">{dossier.title}</td>
-                <td className="p-4 text-gothic-silver/70">{dossier.author_name}</td>
-                <td className="p-4 text-gothic-silver/70">{dossier.category}</td>
+                <td className="p-4 text-gothic-silver/70 capitalize">{dossier.type}</td>
+                <td className="p-4 text-gothic-silver/70 capitalize">{dossier.city}</td>
+                <td className="p-4 text-gothic-silver/70 capitalize">{dossier.classification}</td>
                 <td className="p-4">
                   <span className={`px-2 py-1 rounded text-xs ${
                     dossier.is_published 
@@ -897,15 +928,42 @@ export default function SilverAdminPanel() {
               Category
             </label>
             <select
-              value={fragmentFormModal.formData?.category || 'Lament'}
+              value={fragmentFormModal.formData?.category || 'Transmissions'}
               onChange={(e) => fragmentFormModal.updateFormData({ category: e.target.value })}
               className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
             >
+              <option value="Transmissions">Transmissions</option>
               <option value="Lament">Lament</option>
               <option value="Reflection">Reflection</option>
               <option value="Memory">Memory</option>
               <option value="Sorrow">Sorrow</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Excerpt
+            </label>
+            <textarea
+              value={fragmentFormModal.formData?.excerpt || ''}
+              onChange={(e) => fragmentFormModal.updateFormData({ excerpt: e.target.value })}
+              rows={3}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+              placeholder="Brief excerpt or summary (optional)"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Read Time
+            </label>
+            <input
+              type="text"
+              value={fragmentFormModal.formData?.read_time || ''}
+              onChange={(e) => fragmentFormModal.updateFormData({ read_time: e.target.value })}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+              placeholder="e.g., '5 min read' (optional)"
+            />
           </div>
 
           <div>
@@ -962,18 +1020,17 @@ export default function SilverAdminPanel() {
 
           <div>
             <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Category
+              Priority (0-10)
             </label>
-            <select
-              value={announcementFormModal.formData?.category || 'General'}
-              onChange={(e) => announcementFormModal.updateFormData({ category: e.target.value })}
+            <input
+              type="number"
+              min="0"
+              max="10"
+              value={announcementFormModal.formData?.priority || 0}
+              onChange={(e) => announcementFormModal.updateFormData({ priority: parseInt(e.target.value) || 0 })}
               className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-            >
-              <option value="General">General</option>
-              <option value="Update">Update</option>
-              <option value="Event">Event</option>
-              <option value="Maintenance">Maintenance</option>
-            </select>
+            />
+            <p className="text-xs text-gothic-steel mt-1">Higher numbers = higher priority. Values over 5 marked as high priority.</p>
           </div>
 
           <div>
@@ -992,13 +1049,13 @@ export default function SilverAdminPanel() {
           <div className="flex items-center">
             <input
               type="checkbox"
-              id="announcement_is_published"
-              checked={announcementFormModal.formData?.is_published || false}
-              onChange={(e) => announcementFormModal.updateFormData({ is_published: e.target.checked })}
+              id="announcement_is_active"
+              checked={announcementFormModal.formData?.is_active || false}
+              onChange={(e) => announcementFormModal.updateFormData({ is_active: e.target.checked })}
               className="mr-2"
             />
-            <label htmlFor="announcement_is_published" className="text-sm text-gothic-silver">
-              Publish immediately
+            <label htmlFor="announcement_is_active" className="text-sm text-gothic-silver">
+              Active
             </label>
           </div>
         </div>
@@ -1030,31 +1087,74 @@ export default function SilverAdminPanel() {
           
           <div>
             <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Author Name
+              Summary
             </label>
-            <input
-              type="text"
-              value={dossierFormModal.formData?.author_name || ''}
-              onChange={(e) => dossierFormModal.updateFormData({ author_name: e.target.value })}
+            <textarea
+              value={dossierFormModal.formData?.summary || ''}
+              onChange={(e) => dossierFormModal.updateFormData({ summary: e.target.value })}
+              rows={3}
               className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+              placeholder="Brief summary of the dossier entry"
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Category
+              Type
             </label>
             <select
-              value={dossierFormModal.formData?.category || 'Investigation'}
-              onChange={(e) => dossierFormModal.updateFormData({ category: e.target.value })}
+              value={dossierFormModal.formData?.type || 'character'}
+              onChange={(e) => dossierFormModal.updateFormData({ type: e.target.value })}
               className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
             >
-              <option value="Investigation">Investigation</option>
-              <option value="Evidence">Evidence</option>
-              <option value="Report">Report</option>
-              <option value="Analysis">Analysis</option>
+              <option value="character">Character</option>
+              <option value="location">Location</option>
+              <option value="event">Event</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              City
+            </label>
+            <select
+              value={dossierFormModal.formData?.city || 'silver'}
+              onChange={(e) => dossierFormModal.updateFormData({ city: e.target.value })}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+            >
+              <option value="silver">Silver</option>
+              <option value="crimson">Crimson</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Classification
+            </label>
+            <select
+              value={dossierFormModal.formData?.classification || 'public'}
+              onChange={(e) => dossierFormModal.updateFormData({ classification: e.target.value })}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+            >
+              <option value="public">Public</option>
+              <option value="confidential">Confidential</option>
+              <option value="secret">Secret</option>
+              <option value="top-secret">Top Secret</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Image URL (Optional)
+            </label>
+            <input
+              type="url"
+              value={dossierFormModal.formData?.image_url || ''}
+              onChange={(e) => dossierFormModal.updateFormData({ image_url: e.target.value })}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+              placeholder="https://example.com/image.jpg"
+            />
           </div>
 
           <div>

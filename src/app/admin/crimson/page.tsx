@@ -7,31 +7,37 @@ import {
   Settings, MessageCircle, FileText, Shield, BookOpen, Database, Megaphone 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { useReadModal } from '@/hooks/useReadModal';
 import { useFormModal } from '@/hooks/useModalHooks';
 import { FormModal, useConfirmModalComponent } from '@/components/ModalComponents';
 import { ReadModal } from '@/components/ReadModal';
 
-interface CrimsonEntry {
+interface CrimsonLedgerEntry {
   id: string;
   title: string;
+  excerpt?: string;
   content: string;
   author_name: string;
   category: string;
+  read_time?: string;
   is_published: boolean;
+  published_at?: string;
+  created_by?: string;
   created_at: string;
+  updated_at: string;
 }
 
-interface CrimsonSubmission {
+interface CrimsonConfession {
   id: string;
   title: string;
   content: string;
   author_id: string;
   status: string;
+  author_name: string;
+  tip_count: number;
+  total_tip_amount: number;
   created_at: string;
-  tips: any[];
-  tipTotal?: number;
-  profiles: { username: string };
 }
 
 interface Announcement {
@@ -42,12 +48,6 @@ interface Announcement {
   priority: number;
   is_active: boolean;
   created_at: string;
-  updated_at: string;
-  profiles: {
-    username: string;
-    city_affiliation: string;
-    user_role: string;
-  };
 }
 
 interface DossierEntry {
@@ -55,100 +55,94 @@ interface DossierEntry {
   title: string;
   summary: string;
   content: string;
-  type: 'character' | 'location' | 'event';
-  city: 'crimson' | 'silver';
-  classification: 'public' | 'confidential' | 'secret' | 'top-secret';
+  type: string;
+  city: string;
+  classification: string;
+  image_url?: string;
   is_published: boolean;
   created_at: string;
+  updated_at: string;
 }
 
-export default function AdminCrimson() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<'date' | 'tips'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+interface AdminStats {
+  totalLedgerEntries: number;
+  totalConfessions: number;
+  totalUsers: number;
+  totalAnnouncements: number;
+  totalDossiers: number;
+}
 
-  // Data state
-  const [crimsonEntries, setCrimsonEntries] = useState<CrimsonEntry[]>([]);
-  const [crimsonSubmissions, setCrimsonSubmissions] = useState<CrimsonSubmission[]>([]);
+export default function CrimsonAdminPanel() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [ledgerEntries, setLedgerEntries] = useState<CrimsonLedgerEntry[]>([]);
+  const [confessions, setConfessions] = useState<CrimsonConfession[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [dossierEntries, setDossierEntries] = useState<DossierEntry[]>([]);
+  const [dossiers, setDossiers] = useState<DossierEntry[]>([]);
+  const [stats, setStats] = useState<AdminStats>({
+    totalLedgerEntries: 0,
+    totalConfessions: 0,
+    totalUsers: 0,
+    totalAnnouncements: 0,
+    totalDossiers: 0
+  });
 
   // Modal hooks
-  const entryFormModal = useFormModal<Partial<CrimsonEntry>>();
-  const entryReadModal = useReadModal<CrimsonEntry>();
-  const confessionReadModal = useReadModal<CrimsonSubmission>();
+  const ledgerReadModal = useReadModal<CrimsonLedgerEntry>();
+  const confessionReadModal = useReadModal<CrimsonConfession>();
+  const ledgerFormModal = useFormModal<Partial<CrimsonLedgerEntry>>();
   const announcementFormModal = useFormModal<Partial<Announcement>>();
-  const announcementReadModal = useReadModal<Announcement>();
   const dossierFormModal = useFormModal<Partial<DossierEntry>>();
-  const dossierReadModal = useReadModal<DossierEntry>();
   const { ConfirmModalComponent, openConfirmModal } = useConfirmModalComponent();
-
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'ledger', label: 'Crimson Ledger', icon: BookOpen },
-    { id: 'confessions', label: 'Blood Confessions', icon: MessageCircle },
-    { id: 'announcements', label: 'Announcements', icon: Megaphone },
-    { id: 'dossier', label: 'Dossier Archive', icon: Database },
-    { id: 'users', label: 'Users', icon: Users },
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ];
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        loadCrimsonEntries(),
-        loadCrimsonSubmissions(),
-        loadAnnouncements(),
-        loadDossierEntries(),
-      ]);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
+    await Promise.all([
+      loadLedgerEntries(),
+      loadConfessions(),
+      loadAnnouncements(),
+      loadDossiers(),
+      loadStats()
+    ]);
   };
 
-  const loadCrimsonEntries = async () => {
+  const loadLedgerEntries = async () => {
     try {
       const { data, error } = await supabase
-        .from('crimson_entries')
+        .from('crimson_ledger_entries')
         .select('*')
         .order('created_at', { ascending: false });
-
+      
       if (error) throw error;
-      setCrimsonEntries(data || []);
+      setLedgerEntries(data || []);
     } catch (error) {
-      console.error('Error loading crimson entries:', error);
+      console.error('Error loading ledger entries:', error);
     }
   };
 
-  const loadCrimsonSubmissions = async () => {
+  const loadConfessions = async () => {
     try {
       const { data, error } = await supabase
-        .from('crimson_submissions')
+        .from('crimson_confessions')
         .select(`
           *,
-          profiles!inner(username),
-          tips(amount)
+          profiles(username)
         `)
         .order('created_at', { ascending: false });
-
+      
       if (error) throw error;
-
-      const submissionsWithTips = (data || []).map(submission => ({
-        ...submission,
-        tipTotal: submission.tips?.reduce((sum: number, tip: any) => sum + (tip.amount || 0), 0) || 0
-      }));
-
-      setCrimsonSubmissions(submissionsWithTips);
+      
+      const confessionsWithAuthor = data?.map(confession => ({
+        ...confession,
+        author_name: confession.profiles?.username || 'Anonymous'
+      })) || [];
+      
+      setConfessions(confessionsWithAuthor);
     } catch (error) {
-      console.error('Error loading crimson submissions:', error);
+      console.error('Error loading confessions:', error);
     }
   };
 
@@ -156,13 +150,9 @@ export default function AdminCrimson() {
     try {
       const { data, error } = await supabase
         .from('announcements')
-        .select(`
-          *,
-          profiles!inner(username, city_affiliation, user_role)
-        `)
-        .order('priority', { ascending: false })
+        .select('*')
         .order('created_at', { ascending: false });
-
+      
       if (error) throw error;
       setAnnouncements(data || []);
     } catch (error) {
@@ -170,113 +160,133 @@ export default function AdminCrimson() {
     }
   };
 
-  const loadDossierEntries = async () => {
+  const loadDossiers = async () => {
     try {
       const { data, error } = await supabase
         .from('dossier_entries')
         .select('*')
-        .eq('city', 'crimson')
         .order('created_at', { ascending: false });
-
+      
       if (error) throw error;
-      setDossierEntries(data || []);
+      setDossiers(data || []);
     } catch (error) {
-      console.error('Error loading dossier entries:', error);
+      console.error('Error loading dossiers:', error);
     }
   };
 
-  // Handler functions
-  const handleCreateEntry = () => {
-    entryFormModal.openModal({
+  const loadStats = async () => {
+    try {
+      const [ledgerCount, confessionsCount, usersCount, announcementsCount, dossiersCount] = await Promise.all([
+        supabase.from('crimson_ledger_entries').select('*', { count: 'exact', head: true }),
+        supabase.from('crimson_confessions').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('announcements').select('*', { count: 'exact', head: true }),
+        supabase.from('dossier_entries').select('*', { count: 'exact', head: true })
+      ]);
+
+      setStats({
+        totalLedgerEntries: ledgerCount.count || 0,
+        totalConfessions: confessionsCount.count || 0,
+        totalUsers: usersCount.count || 0,
+        totalAnnouncements: announcementsCount.count || 0,
+        totalDossiers: dossiersCount.count || 0
+      });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  // Ledger entry handlers
+  const handleCreateLedgerEntry = () => {
+    ledgerFormModal.openModal({
+      id: '',
       title: '',
+      excerpt: '',
       content: '',
-      author_name: 'Admin',
-      category: 'Official Records',
-      is_published: true
+      author_name: '',
+      category: 'Chronicle',
+      read_time: '',
+      is_published: false,
+      created_at: '',
+      updated_at: ''
     });
   };
 
-  const handleEditEntry = (entry: CrimsonEntry) => {
-    entryFormModal.openModal(entry);
+  const handleEditLedgerEntry = (entry: CrimsonLedgerEntry) => {
+    ledgerFormModal.openModal(entry);
   };
 
-  const handleReadEntry = (entry: CrimsonEntry) => {
-    entryReadModal.openModal(entry);
-  };
-
-  const handleSubmitEntry = async () => {
+  const handleSaveLedgerEntry = async () => {
+    if (!ledgerFormModal.formData) return;
+    
     try {
-      entryFormModal.setIsSubmitting(true);
-      const formData = entryFormModal.formData;
+      ledgerFormModal.setIsSubmitting(true);
+      
+      const entryData = {
+        title: ledgerFormModal.formData.title,
+        excerpt: ledgerFormModal.formData.excerpt,
+        content: ledgerFormModal.formData.content,
+        author_name: ledgerFormModal.formData.author_name,
+        category: ledgerFormModal.formData.category,
+        read_time: ledgerFormModal.formData.read_time,
+        is_published: ledgerFormModal.formData.is_published,
+        created_by: user?.id
+      };
 
-      if (!formData?.title || !formData?.content) {
-        alert('Please fill in all required fields');
-        return;
-      }
-
-      if (formData.id) {
-        // Update existing entry
+      if (ledgerFormModal.formData.id) {
         const { error } = await supabase
-          .from('crimson_entries')
-          .update({
-            title: formData.title,
-            content: formData.content,
-            author_name: formData.author_name,
-            category: formData.category,
-            is_published: formData.is_published
-          })
-          .eq('id', formData.id);
-
+          .from('crimson_ledger_entries')
+          .update(entryData)
+          .eq('id', ledgerFormModal.formData.id);
+        
         if (error) throw error;
       } else {
-        // Create new entry
         const { error } = await supabase
-          .from('crimson_entries')
-          .insert({
-            title: formData.title,
-            content: formData.content,
-            author_name: formData.author_name,
-            category: formData.category,
-            is_published: formData.is_published
-          });
-
+          .from('crimson_ledger_entries')
+          .insert([entryData]);
+        
         if (error) throw error;
       }
 
-      entryFormModal.closeModal();
-      loadCrimsonEntries();
+      await loadLedgerEntries();
+      ledgerFormModal.closeModal();
+      alert('Ledger entry saved successfully');
     } catch (error) {
-      console.error('Error saving entry:', error);
-      alert('Error saving entry');
+      console.error('Error saving ledger entry:', error);
+      alert('Error saving ledger entry');
     } finally {
-      entryFormModal.setIsSubmitting(false);
+      ledgerFormModal.setIsSubmitting(false);
     }
   };
 
-  const handleDeleteEntry = async (entryId: string) => {
+  const handleDeleteLedgerEntry = async (entryId: string) => {
     openConfirmModal({
-      title: 'Delete Entry',
-      message: 'Are you sure you want to delete this entry? This action cannot be undone.',
+      title: 'Delete Ledger Entry',
+      message: 'Are you sure you want to delete this ledger entry? This action cannot be undone.',
       confirmText: 'Delete',
       variant: 'danger',
       onConfirm: async () => {
         try {
           const { error } = await supabase
-            .from('crimson_entries')
+            .from('crimson_ledger_entries')
             .delete()
             .eq('id', entryId);
 
           if (error) throw error;
-          loadCrimsonEntries();
+          loadLedgerEntries();
         } catch (error) {
-          console.error('Error deleting entry:', error);
-          alert('Error deleting entry');
+          console.error('Error deleting ledger entry:', error);
+          alert('Error deleting ledger entry');
         }
       }
     });
   };
 
-  const handleReadConfession = (confession: CrimsonSubmission) => {
+  const handleReadLedgerEntry = (entry: CrimsonLedgerEntry) => {
+    ledgerReadModal.openModal(entry);
+  };
+
+  const handleReadConfession = (confession: CrimsonConfession) => {
     confessionReadModal.openModal(confession);
   };
 
@@ -288,57 +298,55 @@ export default function AdminCrimson() {
       variant: 'danger',
       onConfirm: async () => {
         try {
+          console.log('Attempting to delete confession:', confessionId);
           const { error } = await supabase
-            .from('crimson_submissions')
+            .from('crimson_confessions')
             .delete()
             .eq('id', confessionId);
 
-          if (error) throw error;
-          loadCrimsonSubmissions();
+          if (error) {
+            console.error('Delete error:', error);
+            throw error;
+          }
+          
+          console.log('Delete successful, reloading confessions...');
+          await loadConfessions();
+          await loadStats(); // Also refresh stats
+          alert('Confession deleted successfully');
         } catch (error) {
           console.error('Error deleting confession:', error);
-          alert('Error deleting confession');
+          alert(`Error deleting confession: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
     });
   };
 
-  const approveConfession = async (confessionId: string) => {
+  const handleUpdateConfessionStatus = async (confessionId: string, newStatus: string) => {
     try {
       const { error } = await supabase
-        .from('crimson_submissions')
-        .update({ status: 'approved' })
+        .from('crimson_confessions')
+        .update({ status: newStatus })
         .eq('id', confessionId);
 
       if (error) throw error;
-      loadCrimsonSubmissions();
+      loadConfessions();
+      alert(`Confession ${newStatus} successfully`);
     } catch (error) {
-      console.error('Error approving confession:', error);
-      alert('Error approving confession');
+      console.error('Error updating confession status:', error);
+      alert('Error updating confession status');
     }
   };
 
-  const rejectConfession = async (confessionId: string) => {
-    try {
-      const { error } = await supabase
-        .from('crimson_submissions')
-        .update({ status: 'rejected' })
-        .eq('id', confessionId);
-
-      if (error) throw error;
-      loadCrimsonSubmissions();
-    } catch (error) {
-      console.error('Error rejecting confession:', error);
-      alert('Error rejecting confession');
-    }
-  };
-
+  // Announcement handlers
   const handleCreateAnnouncement = () => {
     announcementFormModal.openModal({
+      id: '',
       title: '',
       content: '',
+      author_id: user?.id || '',
       priority: 0,
-      is_active: true
+      is_active: true,
+      created_at: ''
     });
   };
 
@@ -346,51 +354,38 @@ export default function AdminCrimson() {
     announcementFormModal.openModal(announcement);
   };
 
-  const handleReadAnnouncement = (announcement: Announcement) => {
-    announcementReadModal.openModal(announcement);
-  };
-
-  const handleSubmitAnnouncement = async () => {
+  const handleSaveAnnouncement = async () => {
+    if (!announcementFormModal.formData) return;
+    
     try {
       announcementFormModal.setIsSubmitting(true);
-      const formData = announcementFormModal.formData;
+      
+      const announcementData = {
+        title: announcementFormModal.formData.title,
+        content: announcementFormModal.formData.content,
+        author_id: user?.id,
+        priority: announcementFormModal.formData.priority || 0,
+        is_active: announcementFormModal.formData.is_active || false
+      };
 
-      if (!formData?.title || !formData?.content) {
-        alert('Please fill in all required fields');
-        return;
-      }
-
-      if (formData.id) {
-        // Update existing announcement
+      if (announcementFormModal.formData.id) {
         const { error } = await supabase
           .from('announcements')
-          .update({
-            title: formData.title,
-            content: formData.content,
-            priority: formData.priority,
-            is_active: formData.is_active
-          })
-          .eq('id', formData.id);
-
+          .update(announcementData)
+          .eq('id', announcementFormModal.formData.id);
+        
         if (error) throw error;
       } else {
-        // Create new announcement
-        const { data: userData } = await supabase.auth.getUser();
         const { error } = await supabase
           .from('announcements')
-          .insert({
-            title: formData.title,
-            content: formData.content,
-            priority: formData.priority,
-            is_active: formData.is_active,
-            author_id: userData.user?.id
-          });
-
+          .insert([announcementData]);
+        
         if (error) throw error;
       }
 
+      await loadAnnouncements();
       announcementFormModal.closeModal();
-      loadAnnouncements();
+      alert('Announcement saved successfully');
     } catch (error) {
       console.error('Error saving announcement:', error);
       alert('Error saving announcement');
@@ -399,15 +394,43 @@ export default function AdminCrimson() {
     }
   };
 
+  const handleDeleteAnnouncement = async (announcementId: string) => {
+    openConfirmModal({
+      title: 'Delete Announcement',
+      message: 'Are you sure you want to delete this announcement? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('announcements')
+            .delete()
+            .eq('id', announcementId);
+
+          if (error) throw error;
+          loadAnnouncements();
+        } catch (error) {
+          console.error('Error deleting announcement:', error);
+          alert('Error deleting announcement');
+        }
+      }
+    });
+  };
+
+  // Dossier handlers
   const handleCreateDossier = () => {
     dossierFormModal.openModal({
+      id: '',
       title: '',
       summary: '',
       content: '',
       type: 'character',
       city: 'crimson',
       classification: 'public',
-      is_published: true
+      image_url: '',
+      is_published: false,
+      created_at: '',
+      updated_at: ''
     });
   };
 
@@ -415,55 +438,41 @@ export default function AdminCrimson() {
     dossierFormModal.openModal(dossier);
   };
 
-  const handleReadDossier = (dossier: DossierEntry) => {
-    dossierReadModal.openModal(dossier);
-  };
-
-  const handleSubmitDossier = async () => {
+  const handleSaveDossier = async () => {
+    if (!dossierFormModal.formData) return;
+    
     try {
       dossierFormModal.setIsSubmitting(true);
-      const formData = dossierFormModal.formData;
+      
+      const dossierData = {
+        title: dossierFormModal.formData.title,
+        summary: dossierFormModal.formData.summary,
+        content: dossierFormModal.formData.content,
+        type: dossierFormModal.formData.type,
+        city: dossierFormModal.formData.city || 'crimson',
+        classification: dossierFormModal.formData.classification || 'public',
+        image_url: dossierFormModal.formData.image_url,
+        is_published: dossierFormModal.formData.is_published
+      };
 
-      if (!formData?.title || !formData?.content) {
-        alert('Please fill in all required fields');
-        return;
-      }
-
-      if (formData.id) {
-        // Update existing dossier
+      if (dossierFormModal.formData.id) {
         const { error } = await supabase
           .from('dossier_entries')
-          .update({
-            title: formData.title,
-            summary: formData.summary,
-            content: formData.content,
-            type: formData.type,
-            city: formData.city,
-            classification: formData.classification,
-            is_published: formData.is_published
-          })
-          .eq('id', formData.id);
-
+          .update(dossierData)
+          .eq('id', dossierFormModal.formData.id);
+        
         if (error) throw error;
       } else {
-        // Create new dossier
         const { error } = await supabase
           .from('dossier_entries')
-          .insert({
-            title: formData.title,
-            summary: formData.summary,
-            content: formData.content,
-            type: formData.type,
-            city: formData.city,
-            classification: formData.classification,
-            is_published: formData.is_published
-          });
-
+          .insert([dossierData]);
+        
         if (error) throw error;
       }
 
+      await loadDossiers();
       dossierFormModal.closeModal();
-      loadDossierEntries();
+      alert('Dossier saved successfully');
     } catch (error) {
       console.error('Error saving dossier:', error);
       alert('Error saving dossier');
@@ -472,869 +481,797 @@ export default function AdminCrimson() {
     }
   };
 
-  const getSortedConfessions = () => {
-    if (!crimsonSubmissions) return [];
+  const handleDeleteDossier = async (dossierId: string) => {
+    openConfirmModal({
+      title: 'Delete Dossier',
+      message: 'Are you sure you want to delete this dossier? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('dossier_entries')
+            .delete()
+            .eq('id', dossierId);
 
-    return [...crimsonSubmissions].sort((a, b) => {
-      if (sortBy === 'date') {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-      } else if (sortBy === 'tips') {
-        const tipsA = a.tipTotal || 0;
-        const tipsB = b.tipTotal || 0;
-        return sortOrder === 'desc' ? tipsB - tipsA : tipsA - tipsB;
+          if (error) throw error;
+          loadDossiers();
+        } catch (error) {
+          console.error('Error deleting dossier:', error);
+          alert('Error deleting dossier');
+        }
       }
-      return 0;
     });
   };
 
-  const renderDashboard = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div className="crimson-theme p-6 rounded-lg tech-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-gothic-steel text-sm">Total Entries</p>
-            <p className="text-2xl font-bold text-gothic-silver">{crimsonEntries.length}</p>
+  const renderOverview = () => (
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <BookOpen className="h-8 w-8 text-red-500" />
+            <span className="text-3xl font-bold text-red-500">{stats.totalLedgerEntries}</span>
           </div>
-          <BookOpen className="text-gothic-crimson" size={24} />
-        </div>
-      </div>
+          <h3 className="text-lg font-semibold text-red-500 mb-2">Ledger Entries</h3>
+          <p className="text-sm text-red-400/70">Total published entries</p>
+        </motion.div>
 
-      <div className="crimson-theme p-6 rounded-lg tech-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-gothic-steel text-sm">Blood Confessions</p>
-            <p className="text-2xl font-bold text-gothic-silver">{crimsonSubmissions.length}</p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <MessageCircle className="h-8 w-8 text-red-500" />
+            <span className="text-3xl font-bold text-red-500">{stats.totalConfessions}</span>
           </div>
-          <MessageCircle className="text-gothic-crimson" size={24} />
-        </div>
-      </div>
+          <h3 className="text-lg font-semibold text-red-500 mb-2">Confessions</h3>
+          <p className="text-sm text-red-400/70">User confessions</p>
+        </motion.div>
 
-      <div className="crimson-theme p-6 rounded-lg tech-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-gothic-steel text-sm">Announcements</p>
-            <p className="text-2xl font-bold text-gothic-silver">{announcements.length}</p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <Users className="h-8 w-8 text-red-500" />
+            <span className="text-3xl font-bold text-red-500">{stats.totalUsers}</span>
           </div>
-          <Megaphone className="text-gothic-crimson" size={24} />
-        </div>
-      </div>
+          <h3 className="text-lg font-semibold text-red-500 mb-2">Users</h3>
+          <p className="text-sm text-red-400/70">Registered users</p>
+        </motion.div>
 
-      <div className="crimson-theme p-6 rounded-lg tech-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-gothic-steel text-sm">Dossier Files</p>
-            <p className="text-2xl font-bold text-gothic-silver">{dossierEntries.length}</p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <Megaphone className="h-8 w-8 text-red-500" />
+            <span className="text-3xl font-bold text-red-500">{stats.totalAnnouncements}</span>
           </div>
-          <Database className="text-gothic-crimson" size={24} />
-        </div>
+          <h3 className="text-lg font-semibold text-red-500 mb-2">Announcements</h3>
+          <p className="text-sm text-red-400/70">Published announcements</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <Database className="h-8 w-8 text-red-500" />
+            <span className="text-3xl font-bold text-red-500">{stats.totalDossiers}</span>
+          </div>
+          <h3 className="text-lg font-semibold text-red-500 mb-2">Dossiers</h3>
+          <p className="text-sm text-red-400/70">Investigation entries</p>
+        </motion.div>
       </div>
     </div>
   );
 
-  const renderLedger = () => (
+  const renderLedgerEntries = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-gothic font-bold text-gothic-silver">Crimson Ledger Archive</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-red-500">Crimson Ledger Entries</h2>
         <button
-          onClick={handleCreateEntry}
-          className="cyber-button px-4 py-2 bg-gothic-crimson text-white hover:bg-gothic-crimson/80"
+          onClick={handleCreateLedgerEntry}
+          className="bg-red-500 hover:bg-red-600 text-gothic-black px-4 py-2 rounded-md transition-all duration-200 flex items-center space-x-2"
         >
-          <Plus size={16} className="mr-2" />
-          New Entry
+          <Plus className="h-4 w-4" />
+          <span>Create Entry</span>
         </button>
       </div>
 
-      <div className="grid gap-6">
-        {crimsonEntries.map((entry) => (
-          <div key={entry.id} className="crimson-theme p-6 rounded-lg tech-border">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-gothic text-gothic-silver">{entry.title}</h3>
-                <p className="text-sm text-gothic-steel">By {entry.author_name} • {new Date(entry.created_at).toLocaleDateString()}</p>
-              </div>
-              <div className="flex space-x-2">
-                <span className={`px-2 py-1 rounded text-xs ${
-                  entry.is_published ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
-                }`}>
-                  {entry.is_published ? 'published' : 'draft'}
-                </span>
-              </div>
-            </div>
-            <p className="text-gothic-steel mb-4 line-clamp-3">{entry.content}</p>
-            <div className="flex space-x-2">
-              <button 
-                onClick={() => handleReadEntry(entry)}
-                className="text-gothic-silver hover:text-red-400 text-sm"
-              >
-                <Eye size={14} className="inline mr-1" />
-                Read Full Entry
-              </button>
-              <button 
-                onClick={() => handleEditEntry(entry)}
-                className="text-gothic-silver hover:text-red-400 text-sm"
-              >
-                <Edit3 size={14} className="inline mr-1" />
-                Edit
-              </button>
-              <button 
-                onClick={() => handleDeleteEntry(entry.id)}
-                className="text-gothic-steel hover:text-red-400 text-sm"
-              >
-                <Trash2 size={14} className="inline mr-1" />
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {crimsonEntries.length === 0 && !loading && (
-          <div className="crimson-theme p-8 rounded-lg tech-border text-center">
-            <BookOpen size={48} className="mx-auto text-gothic-crimson mb-4" />
-            <h3 className="text-xl font-gothic text-gothic-silver mb-2">No Entries Found</h3>
-            <p className="text-gothic-steel mb-4">Create your first Crimson Ledger entry to begin archiving official records.</p>
-            <button
-              onClick={handleCreateEntry}
-              className="cyber-button px-4 py-2 bg-gothic-crimson text-white"
-            >
-              Create First Entry
-            </button>
-          </div>
-        )}
+      <div className="overflow-x-auto">
+        <table className="w-full bg-gothic-charcoal border border-red-500/20 rounded-lg">
+          <thead>
+            <tr className="border-b border-red-500/20">
+              <th className="text-left p-4 text-red-500">Title</th>
+              <th className="text-left p-4 text-red-500">Author</th>
+              <th className="text-left p-4 text-red-500">Category</th>
+              <th className="text-left p-4 text-red-500">Read Time</th>
+              <th className="text-left p-4 text-red-500">Status</th>
+              <th className="text-left p-4 text-red-500">Created</th>
+              <th className="text-left p-4 text-red-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ledgerEntries.map((entry) => (
+              <tr key={entry.id} className="border-b border-red-500/10 hover:bg-red-500/5">
+                <td className="p-4 text-gothic-silver/90">{entry.title}</td>
+                <td className="p-4 text-gothic-silver/70">{entry.author_name}</td>
+                <td className="p-4 text-gothic-silver/70">{entry.category}</td>
+                <td className="p-4 text-gothic-silver/70">{entry.read_time || 'N/A'}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    entry.is_published 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {entry.is_published ? 'Published' : 'Draft'}
+                  </span>
+                </td>
+                <td className="p-4 text-gothic-silver/70">
+                  {new Date(entry.created_at).toLocaleDateString()}
+                </td>
+                <td className="p-4">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleReadLedgerEntry(entry)}
+                      className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleEditLedgerEntry(entry)}
+                      className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteLedgerEntry(entry.id)}
+                      className="text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 
-  const renderConfessions = () => {
-    const sortedConfessions = getSortedConfessions();
-    
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-gothic font-bold text-gothic-silver">Blood Confession Processing</h2>
-          
-          {/* Sorting Controls */}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-gothic-steel text-sm">Sort by:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'date' | 'tips')}
-                className="bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-2 py-1 text-sm"
-              >
-                <option value="date">Date</option>
-                <option value="tips">Tips</option>
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-gothic-steel text-sm">Order:</span>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-                className="bg-gothic-charcoal text-gothic-silver border border-gothic-steel rounded px-2 py-1 text-sm"
-              >
-                <option value="desc">Newest First</option>
-                <option value="asc">Oldest First</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-4">
-          {sortedConfessions.map((confession) => (
-            <div key={confession.id} className="crimson-theme p-4 rounded-lg tech-border">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h4 className="text-gothic-silver font-medium">{confession.title}</h4>
-                  <p className="text-sm text-gothic-steel">
-                    By {confession.profiles.username} • {new Date(confession.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    confession.status === 'approved' ? 'bg-red-500/20 text-red-400' :
-                    confession.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                    'bg-gray-500/20 text-gray-400'
-                  }`}>
-                    {confession.status}
-                  </span>
-                  <span className="text-xs text-gothic-steel">
-                    ${confession.tipTotal?.toFixed(2) || '0.00'}
-                  </span>
-                </div>
-              </div>
-              
-              <p className="text-gothic-steel text-sm mb-3 line-clamp-2">{confession.content}</p>
-              
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => handleReadConfession(confession)}
-                  className="text-gothic-crimson hover:text-red-400 text-sm"
-                >
-                  <Eye size={14} className="inline mr-1" />
-                  Read Full
-                </button>
-                
-                {confession.status === 'pending' && (
-                  <>
-                    <button
-                      onClick={() => approveConfession(confession.id)}
-                      className="text-green-400 hover:text-green-300 text-sm"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => rejectConfession(confession.id)}
-                      className="text-red-400 hover:text-red-300 text-sm"
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
-                
-                <button
-                  onClick={() => handleDeleteConfession(confession.id)}
-                  className="text-gothic-steel hover:text-red-400 text-sm"
-                >
-                  <Trash2 size={14} className="inline mr-1" />
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {sortedConfessions.length === 0 && !loading && (
-            <div className="crimson-theme p-8 rounded-lg tech-border text-center">
-              <MessageCircle size={48} className="mx-auto text-gothic-crimson mb-4" />
-              <h3 className="text-xl font-gothic text-gothic-silver mb-2">No Confessions Found</h3>
-              <p className="text-gothic-steel">Blood confessions will appear here for moderation.</p>
-            </div>
-          )}
-        </div>
+  const renderConfessions = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-red-500">Crimson Confessions</h2>
       </div>
-    );
-  };
+
+      <div className="overflow-x-auto">
+        <table className="w-full bg-gothic-charcoal border border-red-500/20 rounded-lg">
+          <thead>
+            <tr className="border-b border-red-500/20">
+              <th className="text-left p-4 text-red-500">Title</th>
+              <th className="text-left p-4 text-red-500">Author</th>
+              <th className="text-left p-4 text-red-500">Status</th>
+              <th className="text-left p-4 text-red-500">Tips</th>
+              <th className="text-left p-4 text-red-500">Total Amount</th>
+              <th className="text-left p-4 text-red-500">Submitted</th>
+              <th className="text-left p-4 text-red-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {confessions.map((confession) => (
+              <tr key={confession.id} className="border-b border-red-500/10 hover:bg-red-500/5">
+                <td className="p-4 text-gothic-silver/90">{confession.title}</td>
+                <td className="p-4 text-gothic-silver/70">{confession.author_name}</td>
+                <td className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      confession.status === 'approved' 
+                        ? 'bg-green-500/20 text-green-400'
+                        : confession.status === 'rejected'
+                        ? 'bg-red-500/20 text-red-400'
+                        : 'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {confession.status}
+                    </span>
+                    {confession.status === 'pending' && (
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={() => handleUpdateConfessionStatus(confession.id, 'approved')}
+                          className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleUpdateConfessionStatus(confession.id, 'rejected')}
+                          className="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </td>
+                <td className="p-4 text-gothic-silver/70">{confession.tip_count || 0}</td>
+                <td className="p-4 text-gothic-silver/70">${(confession.total_tip_amount || 0).toFixed(2)}</td>
+                <td className="p-4 text-gothic-silver/70">
+                  {new Date(confession.created_at).toLocaleDateString()}
+                </td>
+                <td className="p-4">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleReadConfession(confession)}
+                      className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteConfession(confession.id)}
+                      className="text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   const renderAnnouncements = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-gothic font-bold text-gothic-silver">Network Announcements</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-red-500">Announcements</h2>
         <button
           onClick={handleCreateAnnouncement}
-          className="cyber-button px-4 py-2 bg-gothic-crimson text-white hover:bg-gothic-crimson/80"
+          className="bg-red-500 hover:bg-red-600 text-gothic-black px-4 py-2 rounded-md transition-all duration-200 flex items-center space-x-2"
         >
-          <Plus size={16} className="mr-2" />
-          New Announcement
+          <Plus className="h-4 w-4" />
+          <span>Create Announcement</span>
         </button>
       </div>
 
-      <div className="grid gap-4">
-        {announcements.map((announcement) => (
-          <div key={announcement.id} className="crimson-theme p-4 rounded-lg tech-border">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <h4 className="text-gothic-silver font-medium">{announcement.title}</h4>
-                <p className="text-sm text-gothic-steel">
-                  By {announcement.profiles.username} • {new Date(announcement.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-1 rounded text-xs ${
-                  announcement.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
-                }`}>
-                  {announcement.is_active ? 'Active' : 'Inactive'}
-                </span>
-                <span className={`px-2 py-1 rounded text-xs ${
-                  announcement.priority >= 3 ? 'bg-red-500/20 text-red-400' :
-                  announcement.priority >= 1 ? 'bg-yellow-500/20 text-yellow-400' :
-                  'bg-blue-500/20 text-blue-400'
-                }`}>
-                  P{announcement.priority}
-                </span>
-              </div>
-            </div>
-            
-            <p className="text-gothic-steel text-sm mb-3 line-clamp-2">{announcement.content}</p>
-            
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => handleReadAnnouncement(announcement)}
-                className="text-gothic-crimson hover:text-red-400 text-sm"
-              >
-                <Eye size={14} className="inline mr-1" />
-                Read Full
-              </button>
-              <button
-                onClick={() => handleEditAnnouncement(announcement)}
-                className="text-gothic-silver hover:text-red-400 text-sm"
-              >
-                <Edit3 size={14} className="inline mr-1" />
-                Edit
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {announcements.length === 0 && !loading && (
-          <div className="crimson-theme p-8 rounded-lg tech-border text-center">
-            <Megaphone size={48} className="mx-auto text-gothic-crimson mb-4" />
-            <h3 className="text-xl font-gothic text-gothic-silver mb-2">No Announcements Found</h3>
-            <p className="text-gothic-steel mb-4">Create your first announcement to communicate with users.</p>
-            <button
-              onClick={handleCreateAnnouncement}
-              className="cyber-button px-4 py-2 bg-gothic-crimson text-white"
-            >
-              Create First Announcement
-            </button>
-          </div>
-        )}
+      <div className="overflow-x-auto">
+        <table className="w-full bg-gothic-charcoal border border-red-500/20 rounded-lg">
+          <thead>
+            <tr className="border-b border-red-500/20">
+              <th className="text-left p-4 text-red-500">Title</th>
+              <th className="text-left p-4 text-red-500">Priority</th>
+              <th className="text-left p-4 text-red-500">Status</th>
+              <th className="text-left p-4 text-red-500">Created</th>
+              <th className="text-left p-4 text-red-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {announcements.map((announcement) => (
+              <tr key={announcement.id} className="border-b border-red-500/10 hover:bg-red-500/5">
+                <td className="p-4 text-gothic-silver/90">{announcement.title}</td>
+                <td className="p-4 text-gothic-silver/70">{announcement.priority}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    announcement.is_active 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {announcement.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td className="p-4 text-gothic-silver/70">
+                  {new Date(announcement.created_at).toLocaleDateString()}
+                </td>
+                <td className="p-4">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEditAnnouncement(announcement)}
+                      className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAnnouncement(announcement.id)}
+                      className="text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 
-  const renderDossier = () => (
+  const renderDossiers = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-gothic font-bold text-gothic-silver">Dossier Archive</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-red-500">Dossier Entries</h2>
         <button
           onClick={handleCreateDossier}
-          className="cyber-button px-4 py-2 bg-gothic-crimson text-white hover:bg-gothic-crimson/80"
+          className="bg-red-500 hover:bg-red-600 text-gothic-black px-4 py-2 rounded-md transition-all duration-200 flex items-center space-x-2"
         >
-          <Plus size={16} className="mr-2" />
-          New Dossier
+          <Plus className="h-4 w-4" />
+          <span>Create Dossier</span>
         </button>
       </div>
 
-      <div className="grid gap-4">
-        {dossierEntries.map((dossier) => (
-          <div key={dossier.id} className="crimson-theme p-4 rounded-lg tech-border">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <h4 className="text-gothic-silver font-medium">{dossier.title}</h4>
-                <p className="text-sm text-gothic-steel mb-2">{dossier.summary}</p>
-                <p className="text-xs text-gothic-steel">
+      <div className="overflow-x-auto">
+        <table className="w-full bg-gothic-charcoal border border-red-500/20 rounded-lg">
+          <thead>
+            <tr className="border-b border-red-500/20">
+              <th className="text-left p-4 text-red-500">Title</th>
+              <th className="text-left p-4 text-red-500">Type</th>
+              <th className="text-left p-4 text-red-500">City</th>
+              <th className="text-left p-4 text-red-500">Classification</th>
+              <th className="text-left p-4 text-red-500">Status</th>
+              <th className="text-left p-4 text-red-500">Created</th>
+              <th className="text-left p-4 text-red-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dossiers.map((dossier) => (
+              <tr key={dossier.id} className="border-b border-red-500/10 hover:bg-red-500/5">
+                <td className="p-4 text-gothic-silver/90">{dossier.title}</td>
+                <td className="p-4 text-gothic-silver/70 capitalize">{dossier.type}</td>
+                <td className="p-4 text-gothic-silver/70 capitalize">{dossier.city}</td>
+                <td className="p-4 text-gothic-silver/70 capitalize">{dossier.classification}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    dossier.is_published 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {dossier.is_published ? 'Published' : 'Draft'}
+                  </span>
+                </td>
+                <td className="p-4 text-gothic-silver/70">
                   {new Date(dossier.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-1 rounded text-xs ${
-                  dossier.classification === 'top-secret' ? 'bg-red-500/20 text-red-400' :
-                  dossier.classification === 'secret' ? 'bg-orange-500/20 text-orange-400' :
-                  dossier.classification === 'confidential' ? 'bg-yellow-500/20 text-yellow-400' :
-                  'bg-green-500/20 text-green-400'
-                }`}>
-                  {dossier.classification}
-                </span>
-                <span className="px-2 py-1 bg-gothic-steel/20 text-gothic-steel rounded text-xs">
-                  {dossier.type}
-                </span>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => handleReadDossier(dossier)}
-                className="text-gothic-crimson hover:text-red-400 text-sm"
-              >
-                <Eye size={14} className="inline mr-1" />
-                Read Full
-              </button>
-              <button
-                onClick={() => handleEditDossier(dossier)}
-                className="text-gothic-silver hover:text-red-400 text-sm"
-              >
-                <Edit3 size={14} className="inline mr-1" />
-                Edit
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {dossierEntries.length === 0 && !loading && (
-          <div className="crimson-theme p-8 rounded-lg tech-border text-center">
-            <Database size={48} className="mx-auto text-gothic-crimson mb-4" />
-            <h3 className="text-xl font-gothic text-gothic-silver mb-2">No Dossier Files Found</h3>
-            <p className="text-gothic-steel mb-4">Create your first dossier entry to begin cataloging intelligence.</p>
-            <button
-              onClick={handleCreateDossier}
-              className="cyber-button px-4 py-2 bg-gothic-crimson text-white"
-            >
-              Create First Dossier
-            </button>
-          </div>
-        )}
+                </td>
+                <td className="p-4">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEditDossier(dossier)}
+                      className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteDossier(dossier.id)}
+                      className="text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 
-  const renderUsers = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-gothic font-bold text-gothic-silver">User Management</h2>
-      <div className="crimson-theme p-8 rounded-lg tech-border text-center">
-        <Users size={48} className="mx-auto text-gothic-crimson mb-4" />
-        <h3 className="text-xl font-gothic text-gothic-silver mb-2">User Management Interface</h3>
-        <p className="text-gothic-steel">Advanced user administration and network monitoring tools.</p>
-      </div>
-    </div>
-  );
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gothic-silver">Loading...</div>
-      </div>
-    );
-  }
+  const renderContent = () => {
+    switch(activeTab) {
+      case 'overview':
+        return renderOverview();
+      case 'ledger':
+        return renderLedgerEntries();
+      case 'confessions':
+        return renderConfessions();
+      case 'announcements':
+        return renderAnnouncements();
+      case 'dossiers':
+        return renderDossiers();
+      default:
+        return renderOverview();
+    }
+  };
 
   return (
-    <div className="min-h-screen px-4 py-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
+    <div className="min-h-screen bg-gothic-black">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="mb-8"
         >
-          <div className="crimson-theme p-8 rounded-lg tech-border mb-8">
-            <Shield size={48} className="mx-auto text-gothic-crimson mb-4" />
-            <h1 className="text-4xl font-gothic font-bold text-gothic-silver glow-text mb-4">
-              Crimson Depths Command Center
-            </h1>
-            <p className="text-gothic-steel text-lg">
-              Blood network administration interface for Crimson City consciousness management.
-            </p>
-          </div>
+          <h1 className="text-4xl font-bold text-red-500 mb-2">Crimson Admin Panel</h1>
+          <p className="text-red-400/70">Manage crimson ledger entries, confessions, and content</p>
         </motion.div>
 
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap justify-center mb-8 space-x-2">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <motion.button
+        <div className="bg-gothic-charcoal border border-red-500/20 rounded-lg mb-8">
+          <div className="flex flex-wrap border-b border-red-500/20">
+            {[
+              { id: 'overview', label: 'Overview', icon: BarChart3 },
+              { id: 'ledger', label: 'Ledger', icon: BookOpen },
+              { id: 'confessions', label: 'Confessions', icon: MessageCircle },
+              { id: 'announcements', label: 'Announcements', icon: Megaphone },
+              { id: 'dossiers', label: 'Dossiers', icon: Database }
+            ].map((tab) => (
+              <button
                 key={tab.id}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                className={`flex items-center space-x-2 px-6 py-4 transition-all duration-200 ${
                   activeTab === tab.id
-                    ? 'bg-gothic-crimson text-white'
-                    : 'bg-gothic-charcoal/50 text-gothic-silver hover:bg-gothic-crimson/20'
+                    ? 'bg-red-500/10 text-red-500 border-b-2 border-red-500'
+                    : 'text-red-400/70 hover:text-red-400 hover:bg-red-500/5'
                 }`}
               >
-                <Icon size={16} />
+                <tab.icon className="h-4 w-4" />
                 <span>{tab.label}</span>
-              </motion.button>
-            );
-          })}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Content Area */}
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {activeTab === 'dashboard' && renderDashboard()}
-          {activeTab === 'ledger' && renderLedger()}
-          {activeTab === 'confessions' && renderConfessions()}
-          {activeTab === 'announcements' && renderAnnouncements()}
-          {activeTab === 'dossier' && renderDossier()}
-          {activeTab === 'users' && renderUsers()}
-          {activeTab === 'settings' && (
-            <div className="crimson-theme p-8 rounded-lg tech-border text-center">
-              <Settings size={48} className="mx-auto text-gothic-crimson mb-4" />
-              <h3 className="text-xl font-gothic text-gothic-silver mb-2">System Parameters</h3>
-              <p className="text-gothic-steel">Configure blood network settings and synchronization protocols.</p>
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gothic-charcoal/30 p-4 rounded">
-                  <h4 className="text-gothic-silver font-medium mb-2">Blood Sync Rate</h4>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex-1 bg-gothic-charcoal rounded-full h-2">
-                      <div className="bg-gothic-crimson h-2 rounded-full" style={{ width: '82%' }}></div>
-                    </div>
-                    <span className="text-sm text-gothic-steel">82%</span>
-                  </div>
-                </div>
-                <div className="bg-gothic-charcoal/30 p-4 rounded">
-                  <h4 className="text-gothic-silver font-medium mb-2">Data Integrity</h4>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex-1 bg-gothic-charcoal rounded-full h-2">
-                      <div className="bg-red-400 h-2 rounded-full" style={{ width: '94%' }}></div>
-                    </div>
-                    <span className="text-sm text-red-400">94%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {renderContent()}
         </motion.div>
       </div>
 
-      {/* Entry Form Modal */}
+      {/* Ledger Entry Form Modal */}
       <FormModal
-        isOpen={entryFormModal.isOpen}
-        onClose={entryFormModal.closeModal}
-        title={entryFormModal.formData?.id ? 'Edit Entry' : 'Create Entry'}
+        isOpen={ledgerFormModal.isOpen}
+        onClose={ledgerFormModal.closeModal}
+        title={ledgerFormModal.formData?.id ? 'Edit Ledger Entry' : 'Create Ledger Entry'}
+        onSubmit={handleSaveLedgerEntry}
+        submitText={ledgerFormModal.formData?.id ? 'Update Entry' : 'Create Entry'}
+        isSubmitting={ledgerFormModal.isSubmitting}
         theme="crimson"
-        size="lg"
-        onSubmit={handleSubmitEntry}
-        isSubmitting={entryFormModal.isSubmitting}
-        submitText={entryFormModal.formData?.id ? 'Update Entry' : 'Create Entry'}
       >
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div>
-            <label className="block text-gothic-crimson mb-2">Title</label>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Title
+            </label>
             <input
               type="text"
-              value={entryFormModal.formData?.title || ''}
-              onChange={(e) => entryFormModal.updateFormData({ title: e.target.value })}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
+              value={ledgerFormModal.formData?.title || ''}
+              onChange={(e) => ledgerFormModal.updateFormData({ title: e.target.value })}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              required
             />
           </div>
           
           <div>
-            <label className="block text-gothic-crimson mb-2">Content</label>
-            <textarea
-              value={entryFormModal.formData?.content || ''}
-              onChange={(e) => entryFormModal.updateFormData({ content: e.target.value })}
-              rows={8}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-gothic-crimson mb-2">Author</label>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Author Name
+            </label>
             <input
               type="text"
-              value={entryFormModal.formData?.author_name || ''}
-              onChange={(e) => entryFormModal.updateFormData({ author_name: e.target.value })}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
+              value={ledgerFormModal.formData?.author_name || ''}
+              onChange={(e) => ledgerFormModal.updateFormData({ author_name: e.target.value })}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              required
             />
           </div>
-          
+
           <div>
-            <label className="block text-gothic-crimson mb-2">Category</label>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Category
+            </label>
             <select
-              value={entryFormModal.formData?.category || ''}
-              onChange={(e) => entryFormModal.updateFormData({ category: e.target.value })}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
+              value={ledgerFormModal.formData?.category || 'Chronicle'}
+              onChange={(e) => ledgerFormModal.updateFormData({ category: e.target.value })}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
             >
-              <option value="Official Records">Official Records</option>
-              <option value="Blood Transmissions">Blood Transmissions</option>
-              <option value="Data Fragments">Data Fragments</option>
-              <option value="Archive Entries">Archive Entries</option>
+              <option value="Chronicle">Chronicle</option>
+              <option value="Investigation">Investigation</option>
+              <option value="Mystery">Mystery</option>
+              <option value="Revelation">Revelation</option>
+              <option value="Conspiracy">Conspiracy</option>
             </select>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Excerpt
+            </label>
+            <textarea
+              value={ledgerFormModal.formData?.excerpt || ''}
+              onChange={(e) => ledgerFormModal.updateFormData({ excerpt: e.target.value })}
+              rows={3}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              placeholder="Brief excerpt or summary (optional)"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Read Time
+            </label>
+            <input
+              type="text"
+              value={ledgerFormModal.formData?.read_time || ''}
+              onChange={(e) => ledgerFormModal.updateFormData({ read_time: e.target.value })}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              placeholder="e.g., '5 min read' (optional)"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Content
+            </label>
+            <textarea
+              value={ledgerFormModal.formData?.content || ''}
+              onChange={(e) => ledgerFormModal.updateFormData({ content: e.target.value })}
+              rows={8}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              required
+            />
+          </div>
+
+          <div className="flex items-center">
             <input
               type="checkbox"
-              id="is_published"
-              checked={entryFormModal.formData?.is_published || false}
-              onChange={(e) => entryFormModal.updateFormData({ is_published: e.target.checked })}
-              className="text-gothic-crimson"
+              id="ledger_is_published"
+              checked={ledgerFormModal.formData?.is_published || false}
+              onChange={(e) => ledgerFormModal.updateFormData({ is_published: e.target.checked })}
+              className="mr-2"
             />
-            <label htmlFor="is_published" className="text-gothic-crimson">Published</label>
+            <label htmlFor="ledger_is_published" className="text-sm text-red-500">
+              Publish immediately
+            </label>
           </div>
         </div>
       </FormModal>
-
-      {/* Entry Read Modal */}
-      <ReadModal
-        isOpen={entryReadModal.isOpen}
-        onClose={entryReadModal.closeModal}
-        title={entryReadModal.selectedItem?.title || 'Reading Entry'}
-        theme="crimson"
-        size="xl"
-        author={entryReadModal.selectedItem?.author_name}
-        category={entryReadModal.selectedItem?.category}
-        publishedAt={entryReadModal.selectedItem?.created_at}
-      >
-        <div className="p-6">
-          <div className="prose prose-gothic-crimson max-w-none">
-            {entryReadModal.selectedItem?.content}
-          </div>
-        </div>
-      </ReadModal>
-
-      {/* Confession Read Modal */}
-      <ReadModal
-        isOpen={confessionReadModal.isOpen}
-        onClose={confessionReadModal.closeModal}
-        title={confessionReadModal.selectedItem?.title || 'Reading Confession'}
-        theme="crimson"
-        size="xl"
-        author={confessionReadModal.selectedItem?.profiles?.username}
-        category="Blood Confession"
-        publishedAt={confessionReadModal.selectedItem?.created_at}
-      >
-        <div className="p-6">
-          <div className="border-l-4 border-gothic-crimson/50 pl-6 bg-gothic-charcoal/30">
-            <p className="text-gothic-silver italic text-lg leading-relaxed font-noir whitespace-pre-wrap">
-              &ldquo;{confessionReadModal.selectedItem?.content}&rdquo;
-            </p>
-          </div>
-          
-          {/* Confession Actions */}
-          <div className="mt-6 pt-4 border-t border-gothic-crimson/20">
-            <div className="flex space-x-4">
-              {confessionReadModal.selectedItem?.status === 'pending' && (
-                <>
-                  <button 
-                    onClick={() => {
-                      if (confessionReadModal.selectedItem) {
-                        approveConfession(confessionReadModal.selectedItem.id);
-                        confessionReadModal.closeModal();
-                      }
-                    }}
-                    className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-400/30 rounded hover:bg-red-500/30 transition-colors"
-                  >
-                    Approve Confession
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (confessionReadModal.selectedItem) {
-                        rejectConfession(confessionReadModal.selectedItem.id);
-                        confessionReadModal.closeModal();
-                      }
-                    }}
-                    className="px-4 py-2 bg-gray-500/20 text-gray-400 border border-gray-400/30 rounded hover:bg-gray-500/30 transition-colors"
-                  >
-                    Reject Confession
-                  </button>
-                </>
-              )}
-              <button 
-                onClick={() => {
-                  if (confessionReadModal.selectedItem) {
-                    handleDeleteConfession(confessionReadModal.selectedItem.id);
-                    confessionReadModal.closeModal();
-                  }
-                }}
-                className="px-4 py-2 bg-gothic-charcoal text-gothic-steel border border-gothic-steel rounded hover:bg-red-500/20 hover:text-red-400 transition-colors"
-              >
-                Delete Confession
-              </button>
-            </div>
-          </div>
-        </div>
-      </ReadModal>
 
       {/* Announcement Form Modal */}
       <FormModal
         isOpen={announcementFormModal.isOpen}
         onClose={announcementFormModal.closeModal}
         title={announcementFormModal.formData?.id ? 'Edit Announcement' : 'Create Announcement'}
-        theme="crimson"
-        size="lg"
-        onSubmit={handleSubmitAnnouncement}
-        isSubmitting={announcementFormModal.isSubmitting}
+        onSubmit={handleSaveAnnouncement}
         submitText={announcementFormModal.formData?.id ? 'Update Announcement' : 'Create Announcement'}
+        isSubmitting={announcementFormModal.isSubmitting}
+        theme="crimson"
       >
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div>
-            <label className="block text-gothic-crimson mb-2">Title</label>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Title
+            </label>
             <input
               type="text"
               value={announcementFormModal.formData?.title || ''}
               onChange={(e) => announcementFormModal.updateFormData({ title: e.target.value })}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              required
             />
           </div>
-          
+
           <div>
-            <label className="block text-gothic-crimson mb-2">Content</label>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Priority (0-10)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="10"
+              value={announcementFormModal.formData?.priority || 0}
+              onChange={(e) => announcementFormModal.updateFormData({ priority: parseInt(e.target.value) || 0 })}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+            />
+            <p className="text-xs text-red-400 mt-1">Higher numbers = higher priority. Values over 5 marked as high priority.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Content
+            </label>
             <textarea
               value={announcementFormModal.formData?.content || ''}
               onChange={(e) => announcementFormModal.updateFormData({ content: e.target.value })}
               rows={6}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-gothic-crimson mb-2">Priority (0-5)</label>
-            <input
-              type="number"
-              min="0"
-              max="5"
-              value={announcementFormModal.formData?.priority || 0}
-              onChange={(e) => announcementFormModal.updateFormData({ priority: parseInt(e.target.value) || 0 })}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              required
             />
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center">
             <input
               type="checkbox"
-              id="announcement_active"
+              id="crimson_announcement_is_active"
               checked={announcementFormModal.formData?.is_active || false}
               onChange={(e) => announcementFormModal.updateFormData({ is_active: e.target.checked })}
-              className="text-gothic-crimson"
+              className="mr-2"
             />
-            <label htmlFor="announcement_active" className="text-gothic-crimson">Active</label>
+            <label htmlFor="crimson_announcement_is_active" className="text-sm text-red-500">
+              Active
+            </label>
           </div>
         </div>
       </FormModal>
-
-      {/* Announcement Read Modal */}
-      <ReadModal
-        isOpen={announcementReadModal.isOpen}
-        onClose={announcementReadModal.closeModal}
-        title={announcementReadModal.selectedItem?.title || 'Reading Announcement'}
-        theme="crimson"
-        size="lg"
-        author={announcementReadModal.selectedItem?.profiles?.username || 'Admin'}
-        category="Announcement"
-        publishedAt={announcementReadModal.selectedItem?.created_at}
-      >
-        <div className="p-6">
-          <div className="prose prose-gothic-crimson max-w-none">
-            <div className="bg-gothic-dark-gray/50 p-4 rounded border border-gothic-steel/30">
-              {announcementReadModal.selectedItem?.content}
-            </div>
-            <div className="mt-4 flex items-center space-x-4 text-sm text-gothic-steel">
-              <span className={`px-2 py-1 rounded ${
-                announcementReadModal.selectedItem?.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
-              }`}>
-                {announcementReadModal.selectedItem?.is_active ? 'Active' : 'Inactive'}
-              </span>
-              <span className={`px-2 py-1 rounded ${
-                (announcementReadModal.selectedItem?.priority || 0) >= 3 ? 'bg-red-500/20 text-red-400' 
-                : (announcementReadModal.selectedItem?.priority || 0) >= 1 ? 'bg-yellow-500/20 text-yellow-400'
-                : 'bg-blue-500/20 text-blue-400'
-              }`}>
-                Priority: {announcementReadModal.selectedItem?.priority || 0}
-              </span>
-            </div>
-          </div>
-        </div>
-      </ReadModal>
 
       {/* Dossier Form Modal */}
       <FormModal
         isOpen={dossierFormModal.isOpen}
         onClose={dossierFormModal.closeModal}
-        title={dossierFormModal.formData?.id ? 'Edit Dossier Entry' : 'Create Dossier Entry'}
-        theme="crimson"
-        size="lg"
-        onSubmit={handleSubmitDossier}
-        isSubmitting={dossierFormModal.isSubmitting}
+        title={dossierFormModal.formData?.id ? 'Edit Dossier' : 'Create Dossier'}
+        onSubmit={handleSaveDossier}
         submitText={dossierFormModal.formData?.id ? 'Update Dossier' : 'Create Dossier'}
+        isSubmitting={dossierFormModal.isSubmitting}
+        theme="crimson"
       >
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div>
-            <label className="block text-gothic-crimson mb-2">Title</label>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Title
+            </label>
             <input
               type="text"
               value={dossierFormModal.formData?.title || ''}
               onChange={(e) => dossierFormModal.updateFormData({ title: e.target.value })}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              required
             />
           </div>
           
           <div>
-            <label className="block text-gothic-crimson mb-2">Summary</label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Summary
+            </label>
+            <textarea
               value={dossierFormModal.formData?.summary || ''}
               onChange={(e) => dossierFormModal.updateFormData({ summary: e.target.value })}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
+              rows={3}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              placeholder="Brief summary of the dossier entry"
+              required
             />
           </div>
-          
+
           <div>
-            <label className="block text-gothic-crimson mb-2">Content</label>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Type
+            </label>
+            <select
+              value={dossierFormModal.formData?.type || 'character'}
+              onChange={(e) => dossierFormModal.updateFormData({ type: e.target.value })}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+            >
+              <option value="character">Character</option>
+              <option value="location">Location</option>
+              <option value="event">Event</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              City
+            </label>
+            <select
+              value={dossierFormModal.formData?.city || 'crimson'}
+              onChange={(e) => dossierFormModal.updateFormData({ city: e.target.value })}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+            >
+              <option value="crimson">Crimson</option>
+              <option value="silver">Silver</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Classification
+            </label>
+            <select
+              value={dossierFormModal.formData?.classification || 'public'}
+              onChange={(e) => dossierFormModal.updateFormData({ classification: e.target.value })}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+            >
+              <option value="public">Public</option>
+              <option value="confidential">Confidential</option>
+              <option value="secret">Secret</option>
+              <option value="top-secret">Top Secret</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Image URL (Optional)
+            </label>
+            <input
+              type="url"
+              value={dossierFormModal.formData?.image_url || ''}
+              onChange={(e) => dossierFormModal.updateFormData({ image_url: e.target.value })}
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              placeholder="https://example.com/image.jpg"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-red-500 mb-2">
+              Content
+            </label>
             <textarea
               value={dossierFormModal.formData?.content || ''}
               onChange={(e) => dossierFormModal.updateFormData({ content: e.target.value })}
               rows={8}
-              className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
+              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              required
             />
-          </div>
-          
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-gothic-crimson mb-2">Type</label>
-              <select
-                value={dossierFormModal.formData?.type || 'character'}
-                onChange={(e) => dossierFormModal.updateFormData({ type: e.target.value as any })}
-                className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
-              >
-                <option value="character">Character</option>
-                <option value="location">Location</option>
-                <option value="event">Event</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-gothic-crimson mb-2">City</label>
-              <select
-                value={dossierFormModal.formData?.city || 'crimson'}
-                onChange={(e) => dossierFormModal.updateFormData({ city: e.target.value as any })}
-                className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
-              >
-                <option value="crimson">Crimson City</option>
-                <option value="silver">Silver Heights</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-gothic-crimson mb-2">Classification</label>
-              <select
-                value={dossierFormModal.formData?.classification || 'public'}
-                onChange={(e) => dossierFormModal.updateFormData({ classification: e.target.value as any })}
-                className="w-full p-3 bg-gothic-charcoal border border-gothic-crimson/30 rounded-md text-gothic-silver"
-              >
-                <option value="public">Public</option>
-                <option value="confidential">Confidential</option>
-                <option value="secret">Secret</option>
-                <option value="top-secret">Top Secret</option>
-              </select>
-            </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center">
             <input
               type="checkbox"
-              id="dossier_published"
+              id="crimson_dossier_is_published"
               checked={dossierFormModal.formData?.is_published || false}
               onChange={(e) => dossierFormModal.updateFormData({ is_published: e.target.checked })}
-              className="text-gothic-crimson"
+              className="mr-2"
             />
-            <label htmlFor="dossier_published" className="text-gothic-crimson">Published</label>
+            <label htmlFor="crimson_dossier_is_published" className="text-sm text-red-500">
+              Publish immediately
+            </label>
           </div>
         </div>
       </FormModal>
 
-      {/* Dossier Read Modal */}
+      {/* Read Modals */}
       <ReadModal
-        isOpen={dossierReadModal.isOpen}
-        onClose={dossierReadModal.closeModal}
-        title={dossierReadModal.selectedItem?.title || 'Reading Dossier'}
+        isOpen={ledgerReadModal.isOpen}
+        onClose={ledgerReadModal.closeModal}
+        title={ledgerReadModal.selectedItem?.title || 'Reading Ledger Entry'}
         theme="crimson"
         size="xl"
-        author="Admin"
-        category={`${dossierReadModal.selectedItem?.type} • ${dossierReadModal.selectedItem?.city} • ${dossierReadModal.selectedItem?.classification}`}
-        publishedAt={dossierReadModal.selectedItem?.created_at}
+        author={ledgerReadModal.selectedItem?.author_name}
+        category={ledgerReadModal.selectedItem?.category}
+        publishedAt={ledgerReadModal.selectedItem?.created_at}
       >
         <div className="p-6">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gothic-silver mb-2">Summary</h3>
-            <p className="text-gothic-steel">{dossierReadModal.selectedItem?.summary}</p>
+          <div className="prose prose-red-500 max-w-none">
+            {ledgerReadModal.selectedItem?.content}
           </div>
-          
-          <div>
-            <h3 className="text-lg font-semibold text-gothic-silver mb-2">Details</h3>
-            <div className="prose prose-gothic-crimson max-w-none">
-              <div className="text-gothic-silver leading-relaxed whitespace-pre-wrap text-base">
-                {dossierReadModal.selectedItem?.content}
+        </div>
+      </ReadModal>
+
+      <ReadModal
+        isOpen={confessionReadModal.isOpen}
+        onClose={confessionReadModal.closeModal}
+        title={confessionReadModal.selectedItem?.title || 'Reading Confession'}
+        theme="crimson"
+        size="xl"
+        author={confessionReadModal.selectedItem?.author_name}
+        publishedAt={confessionReadModal.selectedItem?.created_at}
+      >
+        <div className="p-6">
+          <div className="prose prose-red-500 max-w-none">
+            {confessionReadModal.selectedItem?.content}
+          </div>
+          {confessionReadModal.selectedItem && (
+            <div className="mt-4 pt-4 border-t border-red-500/20">
+              <div className="flex justify-between items-center text-sm text-red-400">
+                <span>Tips: {confessionReadModal.selectedItem.tip_count || 0}</span>
+                <span>Total Amount: ${(confessionReadModal.selectedItem.total_tip_amount || 0).toFixed(2)}</span>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </ReadModal>
 

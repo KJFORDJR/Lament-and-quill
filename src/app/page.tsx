@@ -115,6 +115,9 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* Announcements Section */}
+      <AnnouncementsSection />
+
       {/* Features Grid */}
       <section className="relative py-20 px-4 bg-gothic-charcoal/50">
         <div className="max-w-7xl mx-auto">
@@ -176,9 +179,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Announcements Section */}
-      <AnnouncementsSection />
 
       {/* Call to Action */}
       <section className="relative py-20 px-4">
