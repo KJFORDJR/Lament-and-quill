@@ -585,20 +585,6 @@ export default function CheckoutPage() {
                         Credit Card
                       </label>
                     </div>
-                    <div className="flex items-center">
-                      <input
-                        type="radio"
-                        id="crypto"
-                        name="payment"
-                        value="crypto"
-                        checked={paymentMethod === 'crypto'}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                        className="w-4 h-4 text-gothic-silver"
-                      />
-                      <label htmlFor="crypto" className="ml-3 text-gothic-silver">
-                        Cryptocurrency
-                      </label>
-                    </div>
                   </div>
 
                   {paymentMethod === 'credit-card' && (
@@ -614,21 +600,6 @@ export default function CheckoutPage() {
                     />
                   )}
 
-                  {paymentMethod === 'crypto' && (
-                    <div className="space-y-4 p-4 bg-gothic-dark-gray/20 rounded-lg">
-                      <p className="text-gothic-steel text-sm">
-                        Accepted cryptocurrencies: Bitcoin, Ethereum, Litecoin
-                      </p>
-                      <div className="text-center text-gothic-steel py-8">
-                        <div className="text-4xl mb-4">₿</div>
-                        <p>Crypto payment processing would be integrated here</p>
-                        <p className="text-xs mt-2">
-                          (BitPay, Coinbase Commerce, etc.)
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="flex space-x-4">
                     <button
                       type="button"
@@ -637,15 +608,6 @@ export default function CheckoutPage() {
                     >
                       Back to Shipping
                     </button>
-                    {paymentMethod === 'crypto' && (
-                      <button
-                        type="button"
-                        onClick={() => setCurrentStep('review')}
-                        className="cyber-button flex-1 py-4"
-                      >
-                        Review Order
-                      </button>
-                    )}
                   </div>
                 </div>
               </motion.div>
