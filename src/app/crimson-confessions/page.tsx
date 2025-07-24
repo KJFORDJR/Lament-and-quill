@@ -251,7 +251,7 @@ export default function CrimsonConfessions() {
               <MessageCircle size={64} className="mx-auto text-gothic-steel mb-4" />
               <h3 className="text-xl font-gothic text-gothic-silver mb-2">No Confessions Yet</h3>
               <p className="text-gothic-steel mb-6">
-                You haven't submitted any confessions to the blood-traced networks. 
+                You haven&apos;t submitted any confessions to the blood-traced networks. 
                 Share your first transmission from the Crimson Quarter.
               </p>
               <button
@@ -361,7 +361,7 @@ export default function CrimsonConfessions() {
 
             <div className="border-l-4 border-gothic-crimson/50 pl-6" style={{backgroundColor: 'rgba(42, 42, 42, 0.3)'}}>
               <p className="text-gothic-silver italic text-lg leading-relaxed font-noir whitespace-pre-wrap">
-                "{readingConfession.content}"
+                &ldquo;{readingConfession.content}&rdquo;
               </p>
             </div>
           </>

@@ -63,11 +63,11 @@ export default function ForgotPassword() {
               Reset Link Sent
             </h2>
             <p className="text-gothic-steel mb-6 leading-relaxed">
-              We've sent a password reset link to <strong className="text-gothic-green">{email}</strong>. 
+              We&apos;ve sent a password reset link to <strong className="text-gothic-green">{email}</strong>. 
               Check your email and follow the instructions to reset your password.
             </p>
             <p className="text-sm text-gothic-steel/70 mb-6">
-              Don't see the email? Check your spam folder or wait a few minutes for delivery.
+              Don&apos;t see the email? Check your spam folder or wait a few minutes for delivery.
             </p>
             
             <Link 
@@ -154,7 +154,7 @@ export default function ForgotPassword() {
                 />
               </div>
               <p className="text-sm text-gothic-steel/70">
-                We'll send you a link to reset your password
+                We&apos;ll send you a link to reset your password
               </p>
             </motion.div>
 

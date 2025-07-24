@@ -278,7 +278,7 @@ export default function LamentSubmissions() {
               <MessageCircle size={64} className="mx-auto text-gothic-steel mb-4" />
               <h3 className="text-xl font-gothic text-gothic-silver mb-2">No Laments Yet</h3>
               <p className="text-gothic-steel mb-6">
-                You haven't submitted any laments to the neural networks. 
+                You haven&apos;t submitted any laments to the neural networks. 
                 Share your first transmission from Silver Heights.
               </p>
               <button

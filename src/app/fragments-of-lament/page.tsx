@@ -424,7 +424,7 @@ export default function FragmentsOfLament() {
 
             <div className="border-l-4 border-green-400/50 pl-6" style={{backgroundColor: 'rgba(42, 42, 42, 0.3)'}}>
               <p className="text-gothic-silver italic text-lg leading-relaxed font-noir whitespace-pre-wrap">
-                "{readingFragment.content}"
+                &ldquo;{readingFragment.content}&rdquo;
               </p>
             </div>
           </>

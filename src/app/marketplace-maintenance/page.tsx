@@ -54,7 +54,7 @@ export default function MarketplaceMaintenancePage() {
                 <span className="font-medium">Inventory System Update</span>
               </div>
               <p className="text-gothic-steel/80 text-sm">
-                We're adding new merchandise categories and improving the 
+                We&apos;re adding new merchandise categories and improving the 
                 shopping experience for citizens of both cities.
               </p>
             </div>

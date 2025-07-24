@@ -57,7 +57,7 @@ export default function Privacy() {
               <h2 className="text-2xl font-gothic text-gothic-silver">Introduction</h2>
             </div>
             <p className="text-gothic-steel leading-relaxed mb-4">
-              Welcome to Lament and Quill, a Dark Neo-Gothic Tech Noir experience where "Two cities. Two Ghosts. One reckoning." 
+              Welcome to Lament and Quill, a Dark Neo-Gothic Tech Noir experience where &ldquo;Two cities. Two Ghosts. One reckoning.&rdquo; 
               This Privacy Policy explains how we collect, use, disclose, and safeguard your personal information when you visit 
               our website and use our services.
             </p>
@@ -183,7 +183,7 @@ export default function Privacy() {
 
           {/* Children's Privacy */}
           <section>
-            <h2 className="text-2xl font-gothic text-gothic-silver mb-4">Children's Privacy</h2>
+            <h2 className="text-2xl font-gothic text-gothic-silver mb-4">Children&apos;s Privacy</h2>
             <p className="text-gothic-steel leading-relaxed">
               Our services are not directed to individuals under 18 years of age. We do not knowingly collect personal information 
               from children under 18. If we become aware that we have collected personal information from a child under 18, 

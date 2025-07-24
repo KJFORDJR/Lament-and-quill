@@ -389,7 +389,7 @@ export default function OrderConfirmationPage() {
           className="mt-12 gothic-container p-8 text-center"
         >
           <h2 className="text-2xl font-gothic font-bold text-gothic-silver mb-4">
-            What's Next?
+            What&apos;s Next?
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
             <div className="space-y-3">

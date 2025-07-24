@@ -236,7 +236,7 @@ export default function OrderConfirmation() {
             ) : (
               <div>
                 <p className="text-gothic-steel mb-4">
-                  Your order is being prepared for shipment. You'll receive tracking information once shipped.
+                  Your order is being prepared for shipment. You&apos;ll receive tracking information once shipped.
                 </p>
                 <div className="text-sm text-gothic-steel">
                   📦 Expected delivery: 3-5 business days

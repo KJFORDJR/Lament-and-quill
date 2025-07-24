@@ -435,7 +435,7 @@ export default function CrimsonLedger() {
 
             <div className="border-l-4 border-red-400/50 pl-6" style={{backgroundColor: 'rgba(42, 42, 42, 0.3)'}}>
               <p className="text-red-200 italic text-lg leading-relaxed font-noir whitespace-pre-wrap">
-                "{readingEntry.content}"
+                &ldquo;{readingEntry.content}&rdquo;
               </p>
             </div>
           </>

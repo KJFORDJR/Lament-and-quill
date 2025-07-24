@@ -57,8 +57,8 @@ export default function Terms() {
               <h2 className="text-2xl font-gothic text-gothic-silver">Agreement to Terms</h2>
             </div>
             <p className="text-gothic-steel leading-relaxed mb-4">
-              Welcome to Lament and Quill ("we," "our," or "us"). These Terms of Service ("Terms") govern your use of our website 
-              and services located at lamentandquill.com (the "Service") operated by Lament and Quill.
+              Welcome to Lament and Quill (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;). These Terms of Service (&ldquo;Terms&rdquo;) govern your use of our website 
+              and services located at lamentandquill.com (the &ldquo;Service&rdquo;) operated by Lament and Quill.
             </p>
             <p className="text-gothic-steel leading-relaxed mb-4">
               By accessing or using our Service, you agree to be bound by these Terms. If you disagree with any part of these terms, 
@@ -86,7 +86,7 @@ export default function Terms() {
               <li>You must provide accurate, complete, and current information during registration</li>
               <li>You are responsible for maintaining the security of your account and password</li>
               <li>You must immediately notify us of any unauthorized use of your account</li>
-              <li>You may not use another person's account without permission</li>
+              <li>You may not use another person&apos;s account without permission</li>
               <li>You may not create multiple accounts to evade bans or restrictions</li>
             </ul>
 
@@ -139,7 +139,7 @@ export default function Terms() {
             
             <h3 className="text-lg font-semibold text-gothic-silver mb-3">Content Ownership</h3>
             <p className="text-gothic-steel leading-relaxed mb-4">
-              You retain ownership of any content you submit, post, or display on the Service ("User Content"). 
+              You retain ownership of any content you submit, post, or display on the Service (&ldquo;User Content&rdquo;). 
               However, by submitting User Content, you grant us a worldwide, non-exclusive, royalty-free license to use, 
               reproduce, modify, adapt, publish, translate, and distribute such content.
             </p>
@@ -151,7 +151,7 @@ export default function Terms() {
             <ul className="text-gothic-steel leading-relaxed mb-4 space-y-2 list-disc list-inside">
               <li>Be respectful and constructive</li>
               <li>Not contain hate speech, discrimination, or harassment</li>
-              <li>Not infringe on others' intellectual property rights</li>
+              <li>Not infringe on others&apos; intellectual property rights</li>
               <li>Not contain explicit sexual content or nudity</li>
               <li>Not promote violence or illegal activities</li>
               <li>Not contain personal information of others without consent</li>
@@ -242,7 +242,7 @@ export default function Terms() {
             
             <h3 className="text-lg font-semibold text-gothic-silver mb-3">Service Disclaimer</h3>
             <p className="text-gothic-steel leading-relaxed mb-4">
-              THE SERVICE IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS. WE MAKE NO REPRESENTATIONS OR WARRANTIES OF ANY KIND, 
+              THE SERVICE IS PROVIDED ON AN &ldquo;AS IS&rdquo; AND &ldquo;AS AVAILABLE&rdquo; BASIS. WE MAKE NO REPRESENTATIONS OR WARRANTIES OF ANY KIND, 
               EXPRESS OR IMPLIED, AS TO THE OPERATION OF THE SERVICE OR THE INFORMATION, CONTENT, MATERIALS, OR PRODUCTS INCLUDED THEREIN.
             </p>
 

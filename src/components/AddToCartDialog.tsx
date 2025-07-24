@@ -39,7 +39,7 @@ export default function AddToCartDialog({ isOpen, onClose, productTitle }: AddTo
           </h3>
           {productTitle && (
             <p className="text-zinc-300 text-sm">
-              "{productTitle}" has been added to your cart
+              &ldquo;{productTitle}&rdquo; has been added to your cart
             </p>
           )}
         </div>

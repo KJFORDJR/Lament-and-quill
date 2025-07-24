@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Plus, Edit3, Trash2, Eye, Users, BarChart3, 
@@ -95,11 +95,7 @@ export default function CrimsonAdminPanel() {
   const dossierFormModal = useFormModal<Partial<DossierEntry>>();
   const { ConfirmModalComponent, openConfirmModal } = useConfirmModalComponent();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     await Promise.all([
       loadLedgerEntries(),
       loadConfessions(),
@@ -107,7 +103,11 @@ export default function CrimsonAdminPanel() {
       loadDossiers(),
       loadStats()
     ]);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const loadLedgerEntries = async () => {
     try {
