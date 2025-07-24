@@ -10,13 +10,14 @@ export async function middleware(req: NextRequest) {
   console.log(logMessage);
   console.error(logMessage); // Sometimes error logs are more visible
   
-  // Simple test - redirect homepage to maintenance
-  if (req.nextUrl.pathname === '/') {
-    console.log(`[${timestamp}] REDIRECTING to maintenance page`);
-    return NextResponse.redirect(new URL('/maintenance', req.url));
-  }
+  // ❌ REMOVED: This was causing logout redirect loops
+  // DO NOT redirect homepage to maintenance - this breaks logout
+  // if (req.nextUrl.pathname === '/') {
+  //   console.log(`[${timestamp}] REDIRECTING to maintenance page`);
+  //   return NextResponse.redirect(new URL('/maintenance', req.url));
+  // }
   
-  // Allow all other requests
+  // Allow all requests to pass through
   return NextResponse.next();
 }
 

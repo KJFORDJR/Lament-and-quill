@@ -115,13 +115,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth event:', event);
+        console.log('Auth event:', event, 'Session exists:', !!session);
         
         // Handle specific auth events
         if (event === 'SIGNED_OUT') {
+          console.log('User signed out - clearing all state');
           setSession(null);
           setUser(null);
           setProfile(null);
+          setLoading(false);
           return;
         }
         
@@ -129,17 +131,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('Token refreshed successfully');
         }
 
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          const userProfile = await fetchUserProfile(session.user.id);
-          setProfile(userProfile);
-        } else {
-          setProfile(null);
+        // Only update state if we have a valid session or explicitly no session
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || session === null) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            const userProfile = await fetchUserProfile(session.user.id);
+            setProfile(userProfile);
+          } else {
+            setProfile(null);
+          }
+          
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
@@ -148,13 +153,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Sign out from Supabase
-      await supabase.auth.signOut();
+      console.log('Starting logout process...');
       
-      // Clear all local state
+      // Clear local state immediately to prevent UI flicker
       setUser(null);
       setSession(null);
       setProfile(null);
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      console.log('Logout successful, redirecting to home...');
       
       // Force a page refresh to ensure all state is cleared
       // and redirect to home page
