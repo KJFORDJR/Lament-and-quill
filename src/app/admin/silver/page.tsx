@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Plus, Edit3, Trash2, Eye, Users, BarChart3, 
@@ -93,11 +93,7 @@ export default function SilverAdminPanel() {
   const dossierFormModal = useFormModal<Partial<DossierEntry>>();
   const { ConfirmModalComponent, openConfirmModal } = useConfirmModalComponent();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     await Promise.all([
       loadFragments(),
       loadSubmissions(),
@@ -105,7 +101,11 @@ export default function SilverAdminPanel() {
       loadDossiers(),
       loadStats()
     ]);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const loadFragments = async () => {
     try {
