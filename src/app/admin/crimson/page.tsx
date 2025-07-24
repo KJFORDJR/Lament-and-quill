@@ -38,6 +38,9 @@ interface CrimsonConfession {
   tip_count: number;
   total_tip_amount: number;
   created_at: string;
+  is_deleted?: boolean;
+  deleted_at?: string;
+  deleted_by?: string;
 }
 
 interface Announcement {
@@ -79,6 +82,7 @@ export default function CrimsonAdminPanel() {
   const [confessions, setConfessions] = useState<CrimsonConfession[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dossiers, setDossiers] = useState<DossierEntry[]>([]);
+  const [showDeletedConfessions, setShowDeletedConfessions] = useState(false);
   const [stats, setStats] = useState<AdminStats>({
     totalLedgerEntries: 0,
     totalConfessions: 0,
@@ -109,6 +113,11 @@ export default function CrimsonAdminPanel() {
     loadData();
   }, [loadData]);
 
+  // Reload confessions when toggling deleted view
+  useEffect(() => {
+    loadConfessions();
+  }, [showDeletedConfessions]);
+
   const loadLedgerEntries = async () => {
     try {
       const { data, error } = await supabase
@@ -125,13 +134,19 @@ export default function CrimsonAdminPanel() {
 
   const loadConfessions = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('crimson_confessions')
         .select(`
           *,
           profiles(username)
-        `)
-        .order('created_at', { ascending: false });
+        `);
+      
+      // Filter based on whether we want to show deleted confessions
+      if (!showDeletedConfessions) {
+        query = query.neq('is_deleted', true);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
       
@@ -290,18 +305,47 @@ export default function CrimsonAdminPanel() {
     confessionReadModal.openModal(confession);
   };
 
+  const handleRestoreConfession = async (confessionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('crimson_confessions')
+        .update({ 
+          is_deleted: false,
+          deleted_at: null,
+          deleted_by: null,
+          status: 'pending' // Reset to pending for review
+        })
+        .eq('id', confessionId);
+
+      if (error) throw error;
+      await loadConfessions();
+      await loadStats();
+      alert('Confession restored successfully');
+    } catch (error) {
+      console.error('Error restoring confession:', error);
+      alert('Error restoring confession');
+    }
+  };
+
   const handleDeleteConfession = async (confessionId: string) => {
     openConfirmModal({
       title: 'Delete Confession',
-      message: 'Are you sure you want to delete this confession? This action cannot be undone.',
+      message: 'Are you sure you want to delete this confession? This will hide it from users but preserve the data for records.',
       confirmText: 'Delete',
       variant: 'danger',
       onConfirm: async () => {
         try {
-          console.log('Attempting to delete confession:', confessionId);
+          console.log('Attempting to soft delete confession:', confessionId);
+          
+          // Soft delete - mark as deleted but preserve data
           const { error } = await supabase
             .from('crimson_confessions')
-            .delete()
+            .update({ 
+              is_deleted: true,
+              deleted_at: new Date().toISOString(),
+              deleted_by: user?.id,
+              status: 'deleted' // Update status to reflect deletion
+            })
             .eq('id', confessionId);
 
           if (error) {
@@ -309,7 +353,7 @@ export default function CrimsonAdminPanel() {
             throw error;
           }
           
-          console.log('Delete successful, reloading confessions...');
+          console.log('Soft delete successful, reloading confessions...');
           await loadConfessions();
           await loadStats(); // Also refresh stats
           alert('Confession deleted successfully');
@@ -658,6 +702,14 @@ export default function CrimsonAdminPanel() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-red-500">Crimson Confessions</h2>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => setShowDeletedConfessions(!showDeletedConfessions)}
+            className="bg-red-500/20 hover:bg-red-500/30 text-red-400 px-3 py-1 rounded-md transition-all duration-200 text-sm"
+          >
+            {showDeletedConfessions ? 'Hide Deleted' : 'Show Deleted'}
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -675,8 +727,17 @@ export default function CrimsonAdminPanel() {
           </thead>
           <tbody>
             {confessions.map((confession) => (
-              <tr key={confession.id} className="border-b border-red-500/10 hover:bg-red-500/5">
-                <td className="p-4 text-gothic-silver/90">{confession.title}</td>
+              <tr key={confession.id} className={`border-b border-red-500/10 hover:bg-red-500/5 ${
+                confession.is_deleted ? 'opacity-50 bg-red-500/10' : ''
+              }`}>
+                <td className="p-4 text-gothic-silver/90">
+                  {confession.title}
+                  {confession.is_deleted && (
+                    <span className="ml-2 text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
+                      DELETED
+                    </span>
+                  )}
+                </td>
                 <td className="p-4 text-gothic-silver/70">{confession.author_name}</td>
                 <td className="p-4">
                   <div className="flex items-center space-x-2">
@@ -685,11 +746,13 @@ export default function CrimsonAdminPanel() {
                         ? 'bg-green-500/20 text-green-400'
                         : confession.status === 'rejected'
                         ? 'bg-red-500/20 text-red-400'
+                        : confession.status === 'deleted'
+                        ? 'bg-gray-500/20 text-gray-400'
                         : 'bg-yellow-500/20 text-yellow-400'
                     }`}>
                       {confession.status}
                     </span>
-                    {confession.status === 'pending' && (
+                    {confession.status === 'pending' && !confession.is_deleted && (
                       <div className="flex space-x-1">
                         <button
                           onClick={() => handleUpdateConfessionStatus(confession.id, 'approved')}
@@ -720,12 +783,22 @@ export default function CrimsonAdminPanel() {
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    <button
-                      onClick={() => handleDeleteConfession(confession.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {confession.is_deleted ? (
+                      <button
+                        onClick={() => handleRestoreConfession(confession.id)}
+                        className="text-green-400 hover:text-green-300 transition-colors"
+                        title="Restore confession"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleDeleteConfession(confession.id)}
+                        className="text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
