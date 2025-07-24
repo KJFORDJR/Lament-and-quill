@@ -26,19 +26,26 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
     // Fetch system configuration
     const fetchConfig = async () => {
       try {
-        const response = await fetch('/api/system-config', { 
+        console.log('MaintenanceWrapper: Fetching system config...');
+        const timestamp = Date.now();
+        const response = await fetch(`/api/system-config?t=${timestamp}`, { 
           cache: 'no-store',
           headers: {
-            'Cache-Control': 'no-cache'
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
           }
         });
         if (response.ok) {
           const configData = await response.json();
-          console.log('Fetched system config:', configData);
+          console.log('MaintenanceWrapper: Fetched system config:', configData);
+          console.log('MaintenanceWrapper: Marketplace enabled:', configData.marketplace_enabled);
           setConfig(configData);
+        } else {
+          console.error('MaintenanceWrapper: Failed to fetch config, status:', response.status);
         }
       } catch (error) {
-        console.error('Failed to fetch system config:', error);
+        console.error('MaintenanceWrapper: Failed to fetch system config:', error);
         // Assume normal operation if we can't fetch config
         setConfig({
           maintenance_mode: false,
@@ -53,8 +60,8 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
 
     fetchConfig();
     
-    // Set up an interval to periodically refetch config (every 30 seconds)
-    const interval = setInterval(fetchConfig, 30000);
+    // Set up an interval to periodically refetch config (every 10 seconds for more responsive updates)
+    const interval = setInterval(fetchConfig, 10000);
     
     return () => clearInterval(interval);
   }, []);
@@ -108,8 +115,16 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
       }
 
       if (!config.marketplace_enabled && (pathname.startsWith('/merchandise') || pathname.startsWith('/checkout') || pathname.startsWith('/cart') || pathname.startsWith('/orders'))) {
-        console.log('Marketplace is disabled, redirecting to maintenance page');
+        console.log('MaintenanceWrapper: Marketplace is disabled, redirecting to maintenance page');
+        console.log('MaintenanceWrapper: Current marketplace_enabled value:', config.marketplace_enabled);
         router.push('/marketplace-maintenance');
+        return;
+      }
+
+      // If we're on marketplace maintenance page but marketplace is enabled, redirect away
+      if (config.marketplace_enabled && pathname === '/marketplace-maintenance') {
+        console.log('MaintenanceWrapper: Marketplace is enabled, redirecting away from maintenance page');
+        router.push('/merchandise');
         return;
       }
     };

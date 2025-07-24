@@ -2,9 +2,45 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ShoppingBag, Settings, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Settings, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 
 export default function MarketplaceMaintenancePage() {
+  const [isChecking, setIsChecking] = useState(false);
+
+  const checkMarketplaceStatus = async () => {
+    setIsChecking(true);
+    try {
+      console.log('Checking marketplace status...');
+      const timestamp = Date.now();
+      const response = await fetch(`/api/system-config?t=${timestamp}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (response.ok) {
+        const config = await response.json();
+        console.log('Current marketplace status:', config.marketplace_enabled);
+        
+        if (config.marketplace_enabled) {
+          console.log('Marketplace is enabled, redirecting...');
+          window.location.href = '/merchandise';
+        } else {
+          alert('Marketplace is still disabled. Please try again in a moment.');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking marketplace status:', error);
+      alert('Error checking marketplace status. Please try again.');
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gothic-black via-gothic-dark-gray to-gothic-black flex items-center justify-center">
       <div className="absolute inset-0 bg-[url('/circuit-pattern.svg')] opacity-5"></div>
@@ -67,8 +103,17 @@ export default function MarketplaceMaintenancePage() {
             transition={{ delay: 0.8, duration: 0.6 }}
             className="space-y-3"
           >
+            <button
+              onClick={checkMarketplaceStatus}
+              disabled={isChecking}
+              className="w-full cyber-button flex items-center justify-center gap-2"
+            >
+              <RefreshCw className={`w-5 h-5 ${isChecking ? 'animate-spin' : ''}`} />
+              <span>{isChecking ? 'Checking...' : 'Check if Available'}</span>
+            </button>
+            
             <Link href="/dossier" className="block">
-              <button className="w-full cyber-button flex items-center justify-center gap-2">
+              <button className="w-full cyber-button-secondary flex items-center justify-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 Browse City Archives
               </button>

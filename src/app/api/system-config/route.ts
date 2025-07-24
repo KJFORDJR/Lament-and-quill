@@ -3,11 +3,16 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get system configuration
+    console.log('API: Fetching system configuration...');
+    
+    // Get system configuration with no caching
     const { data: config, error } = await supabase
       .from('system_config')
       .select('*')
       .single();
+
+    console.log('API: Raw config data:', config);
+    console.log('API: Error:', error);
 
     if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
       console.error('Error fetching system config:', error);
@@ -28,7 +33,17 @@ export async function GET(request: NextRequest) {
       site_description: 'Two cities. Two Ghosts. One reckoning.',
     };
 
-    return NextResponse.json(config || defaultConfig);
+    const finalConfig = config || defaultConfig;
+    console.log('API: Final config being returned:', finalConfig);
+    console.log('API: Marketplace enabled in response:', finalConfig.marketplace_enabled);
+
+    // Return with no-cache headers
+    const response = NextResponse.json(finalConfig);
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (error) {
     console.error('Unexpected error fetching system config:', error);
     return NextResponse.json(
