@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
     console.log('API: Fetching system configuration...');
     
-    // Get system configuration with no caching
-    const { data: config, error } = await supabase
+    if (!supabaseAdmin) {
+      console.error('API: Supabase admin client not available');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+    
+    // Get system configuration with admin privileges (bypasses RLS)
+    const { data: config, error } = await supabaseAdmin
       .from('system_config')
       .select('*')
       .single();

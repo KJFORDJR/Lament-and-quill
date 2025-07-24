@@ -75,13 +75,19 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
         try {
           const response = await fetch('/api/profile?userId=' + user.id);
           if (response.ok) {
-            const profile = await response.json();
-            console.log('User profile:', profile);
+            const profileResponse = await response.json();
+            console.log('User profile response:', profileResponse);
+            
+            // Handle the API response format {success: true, data: {...}}
+            const profile = profileResponse.success ? profileResponse.data : profileResponse;
+            
+            console.log('User profile data:', profile);
+            console.log('User role:', profile?.user_role);
             console.log('Config maintenance_mode:', config.maintenance_mode);
             console.log('Current pathname:', pathname);
             
             // If user is admin, allow access to everything
-            if (profile.user_role === 'admin') {
+            if (profile?.user_role === 'admin') {
               console.log('User is admin, allowing access');
               return;
             }
