@@ -26,9 +26,15 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
     // Fetch system configuration
     const fetchConfig = async () => {
       try {
-        const response = await fetch('/api/system-config');
+        const response = await fetch('/api/system-config', { 
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
         if (response.ok) {
           const configData = await response.json();
+          console.log('Fetched system config:', configData);
           setConfig(configData);
         }
       } catch (error) {
@@ -46,6 +52,11 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
     };
 
     fetchConfig();
+    
+    // Set up an interval to periodically refetch config (every 30 seconds)
+    const interval = setInterval(fetchConfig, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -75,6 +86,8 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
 
       console.log('User is not admin or not logged in, applying restrictions');
       console.log('Maintenance mode:', config.maintenance_mode);
+      console.log('Marketplace enabled:', config.marketplace_enabled);
+      console.log('Current pathname:', pathname);
 
       // Apply maintenance mode restrictions for non-admin users
       if (config.maintenance_mode && pathname !== '/maintenance' && !pathname.startsWith('/admin')) {
@@ -94,7 +107,8 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
         return;
       }
 
-      if (!config.marketplace_enabled && (pathname.startsWith('/merchandise') || pathname.startsWith('/checkout'))) {
+      if (!config.marketplace_enabled && (pathname.startsWith('/merchandise') || pathname.startsWith('/checkout') || pathname.startsWith('/cart') || pathname.startsWith('/orders'))) {
+        console.log('Marketplace is disabled, redirecting to maintenance page');
         router.push('/marketplace-maintenance');
         return;
       }

@@ -125,7 +125,7 @@ export default function SystemSettingsPage() {
         if (error) throw error;
       }
 
-      alert('System settings saved successfully!');
+      alert('System settings saved successfully! Note: Some changes may take up to 30 seconds to take effect site-wide.');
     } catch (error) {
       console.error('Error saving system config:', error);
       alert('Failed to save system settings');
