@@ -6,6 +6,7 @@ interface SystemConfig {
   forum_enabled: boolean;
   marketplace_enabled: boolean;
   email_notifications: boolean;
+  ads_enabled: boolean;
   site_title: string;
   site_description: string;
 }

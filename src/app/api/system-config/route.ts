@@ -37,13 +37,21 @@ export async function GET(request: NextRequest) {
       forum_enabled: true,
       marketplace_enabled: true,
       email_notifications: true,
+      ads_enabled: false,
       site_title: 'Lament and Quill',
       site_description: 'Two cities. Two Ghosts. One reckoning.',
     };
 
     const finalConfig = config || defaultConfig;
+    
+    // Add ads_enabled from environment variable if not in database
+    if (finalConfig.ads_enabled === undefined) {
+      finalConfig.ads_enabled = process.env.NEXT_PUBLIC_ADS_ENABLED === 'true';
+    }
+    
     console.log('API: Final config being returned:', finalConfig);
     console.log('API: Marketplace enabled in response:', finalConfig.marketplace_enabled);
+    console.log('API: Ads enabled in response:', finalConfig.ads_enabled);
 
     // Return with no-cache headers
     const response = NextResponse.json(finalConfig);

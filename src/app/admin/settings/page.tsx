@@ -31,6 +31,7 @@ interface SystemConfig {
   forum_enabled: boolean;
   marketplace_enabled: boolean;
   email_notifications: boolean;
+  ads_enabled: boolean;
   max_file_size: number;
   session_timeout: number;
   backup_frequency: string;
@@ -55,6 +56,7 @@ export default function SystemSettingsPage() {
     forum_enabled: true,
     marketplace_enabled: true,
     email_notifications: true,
+    ads_enabled: false,
     max_file_size: 5,
     session_timeout: 30,
     backup_frequency: 'daily',
@@ -84,8 +86,13 @@ export default function SystemSettingsPage() {
       console.log('Loading system config - data:', data, 'error:', error);
 
       if (data && !error) {
-        setConfig(data);
-        console.log('Config loaded:', data);
+        // Ensure ads_enabled is set, default to false if missing
+        const configWithAds = {
+          ...data,
+          ads_enabled: data.ads_enabled !== undefined ? data.ads_enabled : false
+        };
+        setConfig(configWithAds);
+        console.log('Config loaded:', configWithAds);
       } else {
         console.log('No system config found, using defaults');
       }
@@ -359,6 +366,22 @@ export default function SystemSettingsPage() {
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-gothic-dark-gray peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                </label>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-gothic-silver font-medium">Google AdSense</div>
+                  <div className="text-sm text-gothic-steel">Enable advertising revenue system</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.ads_enabled}
+                    onChange={(e) => handleInputChange('ads_enabled', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gothic-dark-gray peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
                 </label>
               </div>
             </div>

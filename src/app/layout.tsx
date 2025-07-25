@@ -5,6 +5,7 @@ import { Footer } from '@/components/Footer'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ModalProvider } from '@/contexts/ModalContext'
 import { MaintenanceWrapper } from '@/components/MaintenanceWrapper'
+import AdSenseScript from '../components/AdSenseScript'
 
 export const metadata: Metadata = {
   title: 'Lament and Quill - Two cities. Two Ghosts. One reckoning.',
@@ -18,6 +19,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <AdSenseScript />
+      </head>
       <body className="min-h-screen bg-gothic-black text-gothic-silver font-noir">
         <AuthProvider>
           <ModalProvider>
