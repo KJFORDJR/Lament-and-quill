@@ -1276,6 +1276,20 @@ export default function CrimsonAdminPanel() {
               className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
               placeholder="https://example.com/image.jpg"
             />
+            {/* Image Preview */}
+            {dossierFormModal.formData?.image_url && (
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-red-500 mb-2">Preview:</label>
+                <img 
+                  src={dossierFormModal.formData.image_url}
+                  alt="Preview"
+                  className="max-w-full h-48 object-cover rounded border border-red-500/30"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           <div>

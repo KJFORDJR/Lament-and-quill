@@ -34,23 +34,23 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     const body = await request.json();
-    const { title, subtitle, description, type, city, classification, image_url, is_published } = body;
+    const { title, summary, content, type, city, classification, image_url, is_published } = body;
 
     // Validate required fields
-    if (!title || !subtitle || !description || !type || !city) {
+    if (!title || !summary || !content || !type || !city) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Validate enum values
-    if (!['character', 'map'].includes(type)) {
-      return NextResponse.json({ error: 'Invalid type. Must be character or map' }, { status: 400 });
+    if (!['character', 'location', 'event'].includes(type)) {
+      return NextResponse.json({ error: 'Invalid type. Must be character, location, or event' }, { status: 400 });
     }
 
     if (!['crimson', 'silver'].includes(city)) {
       return NextResponse.json({ error: 'Invalid city. Must be crimson or silver' }, { status: 400 });
     }
 
-    if (classification && !['PUBLIC', 'RESTRICTED', 'CLASSIFIED'].includes(classification)) {
+    if (classification && !['public', 'confidential', 'secret', 'top-secret'].includes(classification)) {
       return NextResponse.json({ error: 'Invalid classification' }, { status: 400 });
     }
 
@@ -58,13 +58,14 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       .from('dossier_entries')
       .update({
         title: title.trim(),
-        subtitle: subtitle.trim(),
-        description: description.trim(),
+        summary: summary.trim(),
+        content: content.trim(),
         type,
         city,
-        classification: classification || 'PUBLIC',
+        classification: classification || 'public',
         image_url,
-        is_published: is_published ?? false
+        is_published: is_published ?? false,
+        updated_at: new Date().toISOString()
       })
       .eq('id', params.id)
       .select()

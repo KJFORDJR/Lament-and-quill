@@ -243,6 +243,21 @@ export default function Dossier() {
                       ? 'crimson-theme hover:shadow-lg hover:shadow-gothic-red/20' 
                       : 'silver-theme hover:shadow-lg hover:shadow-gothic-silver/20'
                   }`}>
+                    {/* Image Section */}
+                    {entry.image_url && (
+                      <div className="mb-4 overflow-hidden rounded-lg">
+                        <img 
+                          src={entry.image_url} 
+                          alt={entry.title}
+                          className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                          onError={(e) => {
+                            // Hide image if it fails to load
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    
                     {/* Classification Badge */}
                     <div className="flex justify-between items-start mb-4">
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
@@ -309,6 +324,21 @@ export default function Dossier() {
       >
         {readingDossier && (
           <>
+            {/* Image Section */}
+            {readingDossier.image_url && (
+              <div className="mb-6">
+                <img 
+                  src={readingDossier.image_url} 
+                  alt={readingDossier.title}
+                  className="w-full max-h-80 object-cover rounded-lg border border-gothic-dark-gray/30"
+                  onError={(e) => {
+                    // Hide image if it fails to load
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            
             <div className="flex items-center space-x-4 text-sm text-gothic-steel mb-6">
               <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
                 readingDossier.classification === 'top-secret' ? 'bg-red-900/80 text-red-100' :
