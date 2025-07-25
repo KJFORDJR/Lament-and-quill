@@ -17,10 +17,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });
     }
 
-    // Simple query first to test basic functionality
+    // Query with profile information joined
     let query = supabaseAdmin
       .from('forum_threads')
-      .select('*')
+      .select(`
+        *,
+        profiles!author_id (
+          id,
+          username,
+          city_affiliation,
+          user_role
+        )
+      `)
       .eq('is_deleted', false)
       .order('is_pinned', { ascending: false })
       .order('last_activity_at', { ascending: false })

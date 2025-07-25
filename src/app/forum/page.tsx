@@ -293,6 +293,45 @@ export default function Forum() {
     return user && (user.id === authorId || profile?.user_role === 'admin');
   };
 
+  // Helper function to check if user is admin
+  const isAdmin = () => {
+    return user && profile?.user_role === 'admin';
+  };
+
+  // Pin/Unpin thread function (Admin only)
+  const togglePinThread = async (threadId: string, currentPinStatus: boolean) => {
+    if (!user || !isAdmin()) return;
+
+    try {
+      const response = await fetch(`/api/forum/threads/${threadId}/pin`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          is_pinned: !currentPinStatus,
+          admin_user_id: user.id
+        })
+      });
+
+      if (response.ok) {
+        // Update the thread in local state
+        setThreads(prev => prev.map(thread => 
+          thread.id === threadId 
+            ? { ...thread, is_pinned: !currentPinStatus }
+            : thread
+        ));
+        
+        // If we're viewing this thread in modal, update it too
+        if (selectedThread && selectedThread.id === threadId) {
+          updateSelectedThread((prev) => prev ? { ...prev, is_pinned: !currentPinStatus } : null);
+        }
+      } else {
+        console.error('Failed to toggle pin status');
+      }
+    } catch (error) {
+      console.error('Error toggling pin status:', error);
+    }
+  };
+
   // Thread edit/delete functions
   const startEditingThread = (thread: Thread) => {
     setEditingThread(thread.id);
@@ -621,32 +660,57 @@ export default function Forum() {
                         )}
                       </div>
                       
-                      {/* Edit/Delete buttons for thread author or admin */}
-                      {canEditDelete(thread.author_id) && (
+                      {/* Edit/Delete/Pin buttons for thread author or admin */}
+                      {(canEditDelete(thread.author_id) || isAdmin()) && (
                         <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditingThread(thread);
-                            }}
-                            className="text-gothic-steel hover:text-gothic-silver transition-colors p-1"
-                            title="Edit thread"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                              <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                            </svg>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteThread(thread.id);
-                            }}
-                            className="text-gothic-steel hover:text-gothic-crimson transition-colors p-1"
-                            title="Delete thread"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {/* Pin button (Admin only) */}
+                          {isAdmin() && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePinThread(thread.id, thread.is_pinned);
+                              }}
+                              className={`transition-colors p-1 ${
+                                thread.is_pinned 
+                                  ? 'text-yellow-400 hover:text-yellow-300' 
+                                  : 'text-gothic-steel hover:text-yellow-400'
+                              }`}
+                              title={thread.is_pinned ? 'Unpin thread' : 'Pin thread'}
+                            >
+                              <Pin size={14} fill={thread.is_pinned ? 'currentColor' : 'none'} />
+                            </button>
+                          )}
+                          
+                          {/* Edit button (Author or Admin) */}
+                          {canEditDelete(thread.author_id) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingThread(thread);
+                              }}
+                              className="text-gothic-steel hover:text-gothic-silver transition-colors p-1"
+                              title="Edit thread"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              </svg>
+                            </button>
+                          )}
+                          
+                          {/* Delete button (Author or Admin) */}
+                          {canEditDelete(thread.author_id) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteThread(thread.id);
+                              }}
+                              className="text-gothic-steel hover:text-gothic-crimson transition-colors p-1"
+                              title="Delete thread"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -774,25 +838,47 @@ export default function Forum() {
                 </div>
                 
                 {/* Thread actions for author or admin */}
-                {canEditDelete(selectedThread.author_id) && editingThread !== selectedThread.id && (
+                {(canEditDelete(selectedThread.author_id) || isAdmin()) && editingThread !== selectedThread.id && (
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => startEditingThread(selectedThread)}
-                      className="text-gothic-steel hover:text-gothic-silver transition-colors p-1"
-                      title="Edit thread"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                        <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => deleteThread(selectedThread.id)}
-                      className="text-gothic-steel hover:text-gothic-crimson transition-colors p-1"
-                      title="Delete thread"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {/* Pin button (Admin only) */}
+                    {isAdmin() && (
+                      <button
+                        onClick={() => togglePinThread(selectedThread.id, selectedThread.is_pinned)}
+                        className={`transition-colors p-1 ${
+                          selectedThread.is_pinned 
+                            ? 'text-yellow-400 hover:text-yellow-300' 
+                            : 'text-gothic-steel hover:text-yellow-400'
+                        }`}
+                        title={selectedThread.is_pinned ? 'Unpin thread' : 'Pin thread'}
+                      >
+                        <Pin size={16} fill={selectedThread.is_pinned ? 'currentColor' : 'none'} />
+                      </button>
+                    )}
+                    
+                    {/* Edit button (Author or Admin) */}
+                    {canEditDelete(selectedThread.author_id) && (
+                      <button
+                        onClick={() => startEditingThread(selectedThread)}
+                        className="text-gothic-steel hover:text-gothic-silver transition-colors p-1"
+                        title="Edit thread"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                    )}
+                    
+                    {/* Delete button (Author or Admin) */}
+                    {canEditDelete(selectedThread.author_id) && (
+                      <button
+                        onClick={() => deleteThread(selectedThread.id)}
+                        className="text-gothic-steel hover:text-gothic-crimson transition-colors p-1"
+                        title="Delete thread"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 )}
 
