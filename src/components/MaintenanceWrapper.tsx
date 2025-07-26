@@ -71,6 +71,8 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
 
     // Check if user is admin
     const checkAdminStatus = async () => {
+      let isAdmin = false;
+      
       if (user) {
         try {
           const response = await fetch('/api/profile?userId=' + user.id);
@@ -89,7 +91,7 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
             // If user is admin, allow access to everything
             if (profile?.user_role === 'admin') {
               console.log('User is admin, allowing access');
-              return;
+              isAdmin = true;
             }
           }
         } catch (error) {
@@ -97,34 +99,39 @@ export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
         }
       }
 
-      console.log('User is not admin or not logged in, applying restrictions');
-      console.log('Maintenance mode:', config.maintenance_mode);
-      console.log('Marketplace enabled:', config.marketplace_enabled);
-      console.log('Current pathname:', pathname);
+      // Only apply restrictions if user is not admin
+      if (!isAdmin) {
+        console.log('User is not admin or not logged in, applying restrictions');
+        console.log('Maintenance mode:', config.maintenance_mode);
+        console.log('Marketplace enabled:', config.marketplace_enabled);
+        console.log('Forum enabled:', config.forum_enabled);
+        console.log('Current pathname:', pathname);
 
-      // Apply maintenance mode restrictions for non-admin users
-      if (config.maintenance_mode && pathname !== '/maintenance' && !pathname.startsWith('/admin')) {
-        console.log('Redirecting to maintenance page from:', pathname);
-        router.push('/maintenance');
-        return;
-      }
+        // Apply maintenance mode restrictions for non-admin users
+        if (config.maintenance_mode && pathname !== '/maintenance' && !pathname.startsWith('/admin')) {
+          console.log('Redirecting to maintenance page from:', pathname);
+          router.push('/maintenance');
+          return;
+        }
 
-      // Apply other feature restrictions
-      if (!config.registration_enabled && pathname === '/register') {
-        router.push('/registration-disabled');
-        return;
-      }
+        // Apply other feature restrictions
+        if (!config.registration_enabled && pathname === '/register') {
+          router.push('/registration-disabled');
+          return;
+        }
 
-      if (!config.forum_enabled && pathname.startsWith('/forum')) {
-        router.push('/forum-maintenance');
-        return;
-      }
+        if (!config.forum_enabled && pathname.startsWith('/forum')) {
+          console.log('Forum is disabled, redirecting to forum maintenance page');
+          router.push('/forum-maintenance');
+          return;
+        }
 
-      if (!config.marketplace_enabled && (pathname.startsWith('/merchandise') || pathname.startsWith('/checkout') || pathname.startsWith('/cart') || pathname.startsWith('/orders'))) {
-        console.log('MaintenanceWrapper: Marketplace is disabled, redirecting to maintenance page');
-        console.log('MaintenanceWrapper: Current marketplace_enabled value:', config.marketplace_enabled);
-        router.push('/marketplace-maintenance');
-        return;
+        if (!config.marketplace_enabled && (pathname.startsWith('/merchandise') || pathname.startsWith('/checkout') || pathname.startsWith('/cart') || pathname.startsWith('/orders'))) {
+          console.log('MaintenanceWrapper: Marketplace is disabled, redirecting to maintenance page');
+          console.log('MaintenanceWrapper: Current marketplace_enabled value:', config.marketplace_enabled);
+          router.push('/marketplace-maintenance');
+          return;
+        }
       }
 
       // If we're on marketplace maintenance page but marketplace is enabled, redirect away
