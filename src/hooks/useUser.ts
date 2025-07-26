@@ -17,6 +17,32 @@ export function useUser() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Session timeout management
+    let warningTimer: NodeJS.Timeout;
+    let logoutTimer: NodeJS.Timeout;
+
+    const resetActivityTimers = () => {
+      clearTimeout(warningTimer);
+      clearTimeout(logoutTimer);
+      
+      if (user) {
+        sessionStorage.setItem('last_activity', Date.now().toString());
+        
+        // Show warning after 25 minutes of inactivity
+        warningTimer = setTimeout(() => {
+          const event = new CustomEvent('sessionWarning');
+          window.dispatchEvent(event);
+        }, 25 * 60 * 1000);
+
+        // Auto-logout after 30 minutes
+        logoutTimer = setTimeout(async () => {
+          await supabase.auth.signOut();
+          const event = new CustomEvent('sessionTimeout');
+          window.dispatchEvent(event);
+        }, 30 * 60 * 1000);
+      }
+    };
+
     // Get initial session with error handling
     const initializeAuth = async () => {
       try {
@@ -34,7 +60,10 @@ export function useUser() {
 
         setUser(session?.user ?? null);
         if (session?.user) {
+          sessionStorage.setItem('auth_session_active', 'true');
+          sessionStorage.setItem('last_activity', Date.now().toString());
           fetchProfile(session.user.id);
+          resetActivityTimers();
         } else {
           setLoading(false);
         }
@@ -63,19 +92,40 @@ export function useUser() {
         setUser(null);
         setProfile(null);
         setLoading(false);
+        sessionStorage.clear();
+        localStorage.removeItem('forum_draft');
+        clearTimeout(warningTimer);
+        clearTimeout(logoutTimer);
         return;
+      } else if (event === 'SIGNED_IN') {
+        sessionStorage.setItem('auth_session_active', 'true');
+        sessionStorage.setItem('last_activity', Date.now().toString());
       }
 
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
+        resetActivityTimers();
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Track user activity for session timeout
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    activityEvents.forEach(event => {
+      document.addEventListener(event, resetActivityTimers, true);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, resetActivityTimers, true);
+      });
+      clearTimeout(warningTimer);
+      clearTimeout(logoutTimer);
+    };
   }, []);
 
   const fetchProfile = async (userId: string) => {

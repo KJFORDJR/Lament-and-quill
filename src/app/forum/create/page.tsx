@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus, ArrowLeft, Save, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import Link from 'next/link';
@@ -26,6 +26,54 @@ export default function CreateThreadPage() {
     category: 'general'
   });
   const [submitting, setSubmitting] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [showDraftRestored, setShowDraftRestored] = useState(false);
+
+  // Load saved draft on component mount
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('forum_draft');
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft.title || draft.content) {
+          setNewThread(draft);
+          setShowDraftRestored(true);
+          // Hide the notification after 5 seconds
+          setTimeout(() => setShowDraftRestored(false), 5000);
+        }
+      } catch (error) {
+        console.error('Error loading draft:', error);
+        localStorage.removeItem('forum_draft');
+      }
+    }
+  }, []);
+
+  // Auto-save draft every 30 seconds when there's content
+  useEffect(() => {
+    const saveDraft = () => {
+      if (newThread.title.trim() || newThread.content.trim()) {
+        localStorage.setItem('forum_draft', JSON.stringify(newThread));
+        setDraftSaved(true);
+        setTimeout(() => setDraftSaved(false), 2000);
+      }
+    };
+
+    // Save immediately when content changes (debounced)
+    const timeoutId = setTimeout(saveDraft, 2000);
+    
+    // Also save periodically
+    const interval = setInterval(saveDraft, 30000);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(interval);
+    };
+  }, [newThread]);
+
+  // Clear draft when thread is successfully created
+  const clearDraft = () => {
+    localStorage.removeItem('forum_draft');
+  };
 
   // Load user profile
   useEffect(() => {
@@ -77,6 +125,8 @@ export default function CreateThreadPage() {
       if (error) throw error;
 
       if (data) {
+        // Clear the draft when successfully created
+        clearDraft();
         // Redirect to the new thread
         router.push(`/forum/${data.id}`);
       }
@@ -111,6 +161,39 @@ export default function CreateThreadPage() {
 
   return (
     <div className="min-h-screen bg-gothic-charcoal text-white">
+      {/* Draft Restored Notification */}
+      {showDraftRestored && (
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          className="fixed top-4 right-4 z-40 bg-gothic-silver/10 border border-gothic-silver/30 rounded-lg p-4 max-w-sm"
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="text-gothic-silver" size={20} />
+            <div>
+              <p className="text-gothic-silver font-medium">Draft Restored</p>
+              <p className="text-gothic-steel text-sm">Your previous draft has been loaded</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Draft Saved Notification */}
+      {draftSaved && (
+        <motion.div
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 50 }}
+          className="fixed bottom-4 right-4 z-40 bg-gothic-dark-gray/80 border border-gothic-steel/30 rounded-lg p-3"
+        >
+          <div className="flex items-center gap-2">
+            <Save className="text-gothic-steel" size={16} />
+            <p className="text-gothic-steel text-sm">Draft saved</p>
+          </div>
+        </motion.div>
+      )}
+
       <div className="container mx-auto px-4 py-8">
         {/* Header with Back Button */}
         <div className="mb-6">

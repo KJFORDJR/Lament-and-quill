@@ -5,6 +5,7 @@ import { Footer } from '@/components/Footer'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ModalProvider } from '@/contexts/ModalContext'
 import { MaintenanceWrapper } from '@/components/MaintenanceWrapper'
+import { SessionWarning } from '@/components/SessionWarning'
 import AdSenseScript from '../components/AdSenseScript'
 
 export const metadata: Metadata = {
@@ -32,6 +33,7 @@ export default function RootLayout({
                 {children}
               </main>
               <Footer />
+              <SessionWarning />
             </MaintenanceWrapper>
           </ModalProvider>
         </AuthProvider>
