@@ -151,17 +151,23 @@ export default function ThreadPage() {
 
         // Fetch user's likes if authenticated
         if (user) {
-          const { data: likesData } = await supabase
-            .from('forum_likes')
-            .select('item_type, item_id')
-            .eq('user_id', user.id)
-            .in('item_id', [threadId, ...repliesData?.map(r => r.id) || []]);
+          const itemIds = [threadId, ...repliesData?.map(r => r.id) || []];
+          
+          if (itemIds.length > 0) {
+            const { data: likesData } = await supabase
+              .from('forum_likes')
+              .select('thread_id, reply_id')
+              .eq('user_id', user.id)
+              .or(`thread_id.in.(${itemIds.join(',')}),reply_id.in.(${itemIds.join(',')})`);
 
-          if (likesData) {
-            const likedSet = new Set(
-              likesData.map(like => `${like.item_type}_${like.item_id}`)
-            );
-            setLikedItems(likedSet);
+            if (likesData) {
+              const likedSet = new Set<string>();
+              likesData.forEach(like => {
+                if (like.thread_id) likedSet.add(`thread_${like.thread_id}`);
+                if (like.reply_id) likedSet.add(`reply_${like.reply_id}`);
+              });
+              setLikedItems(likedSet);
+            }
           }
         }
       } catch (error) {
@@ -230,12 +236,22 @@ export default function ThreadPage() {
 
     try {
       if (isLiked) {
-        await supabase
-          .from('forum_likes')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('item_type', itemType)
-          .eq('item_id', itemId);
+        // Delete the like using the correct column names
+        if (itemType === 'thread') {
+          await supabase
+            .from('forum_likes')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('thread_id', itemId)
+            .is('reply_id', null);
+        } else {
+          await supabase
+            .from('forum_likes')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('reply_id', itemId)
+            .is('thread_id', null);
+        }
 
         setLikedItems(prev => {
           const newSet = new Set(prev);
@@ -256,13 +272,18 @@ export default function ThreadPage() {
           );
         }
       } else {
+        // Insert the like using the correct column names
+        const insertData = {
+          user_id: user.id,
+          ...(itemType === 'thread' 
+            ? { thread_id: itemId, reply_id: null }
+            : { reply_id: itemId, thread_id: null }
+          )
+        };
+
         await supabase
           .from('forum_likes')
-          .insert({
-            user_id: user.id,
-            item_type: itemType,
-            item_id: itemId
-          });
+          .insert(insertData);
 
         setLikedItems(prev => new Set([...Array.from(prev), likeKey]));
 

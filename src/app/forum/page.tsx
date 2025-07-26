@@ -433,10 +433,10 @@ export default function ForumPage() {
                 transition={{ delay: index * 0.1, duration: 0.6 }}
                 className="group"
               >
-                <Link href={`/forum/${thread.id}`}>
-                  <div className="bg-gothic-dark-gray/20 hover:bg-gothic-dark-gray/40 p-6 rounded-lg border border-gothic-dark-gray/30 hover:border-gothic-silver/30 transition-all duration-300 cursor-pointer">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                <div className="bg-gothic-dark-gray/20 hover:bg-gothic-dark-gray/40 p-6 rounded-lg border border-gothic-dark-gray/30 hover:border-gothic-silver/30 transition-all duration-300">
+                  <div className="flex items-start justify-between">
+                    <Link href={`/forum/${thread.id}`} className="flex-1 cursor-pointer">
+                      <div>
                         {/* Title and Badges */}
                         <div className="flex items-center flex-wrap gap-2 mb-3">
                           {thread.is_pinned && (
@@ -483,40 +483,40 @@ export default function ForumPage() {
                           </div>
                         </div>
                       </div>
+                    </Link>
 
-                      {/* Admin Actions */}
-                      {isAdmin() && (
-                        <div className="flex items-center space-x-2 ml-4" onClick={(e) => e.preventDefault()}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePinThread(thread.id, thread.is_pinned);
-                            }}
-                            className={`transition-colors p-1 ${
-                              thread.is_pinned 
-                                ? 'text-yellow-400 hover:text-yellow-300' 
-                                : 'text-gothic-steel hover:text-yellow-400'
-                            }`}
-                            title={thread.is_pinned ? 'Unpin thread' : 'Pin thread'}
-                          >
-                            <Pin size={16} fill={thread.is_pinned ? 'currentColor' : 'none'} />
-                          </button>
-                          
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteThread(thread.id, thread.author_id);
-                            }}
-                            className="text-gothic-steel hover:text-gothic-crimson transition-colors p-1"
-                            title="Delete thread"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    {/* Admin Actions */}
+                    {isAdmin() && (
+                      <div className="flex items-center space-x-2 ml-4">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePinThread(thread.id, thread.is_pinned);
+                          }}
+                          className={`transition-colors p-1 ${
+                            thread.is_pinned 
+                              ? 'text-yellow-400 hover:text-yellow-300' 
+                              : 'text-gothic-steel hover:text-yellow-400'
+                          }`}
+                          title={thread.is_pinned ? 'Unpin thread' : 'Pin thread'}
+                        >
+                          <Pin size={16} fill={thread.is_pinned ? 'currentColor' : 'none'} />
+                        </button>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteThread(thread.id, thread.author_id);
+                          }}
+                          className="text-gothic-steel hover:text-gothic-crimson transition-colors p-1"
+                          title="Delete thread"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </Link>
+                </div>
               </motion.div>
             ))
           )}
