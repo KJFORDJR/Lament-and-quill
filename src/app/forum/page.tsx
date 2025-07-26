@@ -139,6 +139,7 @@ export default function ForumPage() {
             )
           )
         `)
+        .eq('is_deleted', false)
         .order('is_pinned', { ascending: false })
         .order('last_activity_at', { ascending: false })
         .limit(50);
@@ -169,10 +170,12 @@ export default function ForumPage() {
         const [threadsCount, repliesCount] = await Promise.all([
           supabase
             .from('forum_threads')
-            .select('*', { count: 'exact', head: true }),
+            .select('*', { count: 'exact', head: true })
+            .eq('is_deleted', false),
           supabase
             .from('forum_replies')
             .select('*', { count: 'exact', head: true })
+            .eq('is_deleted', false)
         ]);
 
         setStats({
@@ -188,10 +191,12 @@ export default function ForumPage() {
         const [threadsCount, repliesCount] = await Promise.all([
           supabase
             .from('forum_threads')
-            .select('*', { count: 'exact', head: true }),
+            .select('*', { count: 'exact', head: true })
+            .eq('is_deleted', false),
           supabase
             .from('forum_replies')
             .select('*', { count: 'exact', head: true })
+            .eq('is_deleted', false)
         ]);
 
         setStats({
@@ -270,17 +275,23 @@ export default function ForumPage() {
     if (!window.confirm('Are you sure you want to delete this thread?')) return;
 
     try {
-      const { error } = await supabase
-        .from('forum_threads')
-        .delete()
-        .eq('id', threadId);
+      const response = await fetch(`/api/forum/threads/${threadId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author_id: user.id })
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete thread');
+      }
       
+      // Remove from local state immediately for better UX
       setThreads(prev => prev.filter(thread => thread.id !== threadId));
       fetchStats(); // Update stats
     } catch (error) {
       console.error('Error deleting thread:', error);
+      alert('Failed to delete thread. Please try again.');
     }
   };
 
