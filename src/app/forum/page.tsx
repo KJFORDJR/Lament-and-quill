@@ -350,7 +350,7 @@ export default function ForumPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-2xl font-gothic text-gothic-silver">{stats.totalReplies}</h3>
-                <p className="text-gothic-steel">Today's Posts</p>
+                <p className="text-gothic-steel">Today&apos;s Posts</p>
               </div>
               <ThumbsUp size={32} className="text-gothic-silver" />
             </div>
