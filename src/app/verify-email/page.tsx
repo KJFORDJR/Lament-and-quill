@@ -32,7 +32,9 @@ export default function VerifyEmailPage() {
         access_token, 
         refresh_token, 
         error, 
-        error_description 
+        error_description,
+        fullURL: window.location.href,
+        searchParams: window.location.search
       });
 
       // Check for errors in URL first
