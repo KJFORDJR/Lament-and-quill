@@ -46,11 +46,11 @@ export async function POST(request: NextRequest) {
     // Get user profile to check admin status
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('is_admin')
+      .select('user_role')
       .eq('id', user.id)
       .single();
 
-    if (!profile?.is_admin) {
+    if (!profile || profile.user_role !== 'Admin') {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }

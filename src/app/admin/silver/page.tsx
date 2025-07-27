@@ -10,8 +10,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useReadModal } from '@/hooks/useReadModal';
-import { useFormModal } from '@/hooks/useModalHooks';
-import { FormModal, useConfirmModalComponent } from '@/components/ModalComponents';
+import { useConfirmModalComponent } from '@/components/ModalComponents';
 import { ReadModal } from '@/components/ReadModal';
 import { DragDropTable } from '@/components/DragDropTable';
 
@@ -93,8 +92,6 @@ export default function SilverAdminPanel() {
   // Modal hooks
   const fragmentReadModal = useReadModal<LamentFragment>();
   const submissionReadModal = useReadModal<LamentSubmission>();
-  const announcementFormModal = useFormModal<Partial<Announcement>>();
-  const dossierFormModal = useFormModal<Partial<DossierEntry>>();
   const { ConfirmModalComponent, openConfirmModal } = useConfirmModalComponent();
 
   const loadData = useCallback(async () => {
@@ -113,14 +110,36 @@ export default function SilverAdminPanel() {
 
   const loadFragments = async () => {
     try {
-      const { data, error } = await supabase
+      // Try to order by display_order first, fall back to created_at if column doesn't exist
+      let query = supabase
         .from('lament_fragments_entries')
-        .select('*')
-        .order('display_order', { ascending: true })
-        .order('created_at', { ascending: false });
+        .select('*');
       
-      if (error) throw error;
-      setFragments(data || []);
+      try {
+        const { data, error } = await query.order('display_order', { ascending: true });
+        if (error && error.message.includes('column "display_order" does not exist')) {
+          // Fall back to created_at ordering
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('lament_fragments_entries')
+            .select('*')
+            .order('created_at', { ascending: false });
+          
+          if (fallbackError) throw fallbackError;
+          setFragments(fallbackData || []);
+        } else {
+          if (error) throw error;
+          setFragments(data || []);
+        }
+      } catch (err) {
+        // If ordering by display_order fails, use created_at
+        const { data, error } = await supabase
+          .from('lament_fragments_entries')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        setFragments(data || []);
+      }
     } catch (error) {
       console.error('Error loading fragments:', error);
     }
@@ -296,59 +315,11 @@ export default function SilverAdminPanel() {
 
   // Announcement handlers
   const handleCreateAnnouncement = () => {
-    announcementFormModal.openModal({
-      id: '',
-      title: '',
-      content: '',
-      author_id: user?.id || '',
-      priority: 0,
-      is_active: true,
-      created_at: ''
-    });
+    router.push('/admin/silver/announcement/create');
   };
 
   const handleEditAnnouncement = (announcement: Announcement) => {
-    announcementFormModal.openModal(announcement);
-  };
-
-  const handleSaveAnnouncement = async () => {
-    if (!announcementFormModal.formData) return;
-    
-    try {
-      announcementFormModal.setIsSubmitting(true);
-      
-      const announcementData = {
-        title: announcementFormModal.formData.title,
-        content: announcementFormModal.formData.content,
-        author_id: user?.id,
-        priority: announcementFormModal.formData.priority || 0,
-        is_active: announcementFormModal.formData.is_active || false
-      };
-
-      if (announcementFormModal.formData.id) {
-        const { error } = await supabase
-          .from('announcements')
-          .update(announcementData)
-          .eq('id', announcementFormModal.formData.id);
-        
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('announcements')
-          .insert([announcementData]);
-        
-        if (error) throw error;
-      }
-
-      await loadAnnouncements();
-      announcementFormModal.closeModal();
-      alert('Announcement saved successfully');
-    } catch (error) {
-      console.error('Error saving announcement:', error);
-      alert('Error saving announcement');
-    } finally {
-      announcementFormModal.setIsSubmitting(false);
-    }
+    router.push(`/admin/silver/announcement/edit/${announcement.id}`);
   };
 
   const handleDeleteAnnouncement = async (announcementId: string) => {
@@ -376,66 +347,11 @@ export default function SilverAdminPanel() {
 
   // Dossier handlers
   const handleCreateDossier = () => {
-    dossierFormModal.openModal({
-      id: '',
-      title: '',
-      summary: '',
-      content: '',
-      type: 'character',
-      city: 'silver',
-      classification: 'public',
-      image_url: '',
-      is_published: false,
-      created_at: '',
-      updated_at: ''
-    });
+    router.push('/admin/silver/dossier/create');
   };
 
   const handleEditDossier = (dossier: DossierEntry) => {
-    dossierFormModal.openModal(dossier);
-  };
-
-  const handleSaveDossier = async () => {
-    if (!dossierFormModal.formData) return;
-    
-    try {
-      dossierFormModal.setIsSubmitting(true);
-      
-      const dossierData = {
-        title: dossierFormModal.formData.title,
-        summary: dossierFormModal.formData.summary,
-        content: dossierFormModal.formData.content,
-        type: dossierFormModal.formData.type,
-        city: dossierFormModal.formData.city || 'silver',
-        classification: dossierFormModal.formData.classification || 'public',
-        image_url: dossierFormModal.formData.image_url,
-        is_published: dossierFormModal.formData.is_published
-      };
-
-      if (dossierFormModal.formData.id) {
-        const { error } = await supabase
-          .from('dossier_entries')
-          .update(dossierData)
-          .eq('id', dossierFormModal.formData.id);
-        
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('dossier_entries')
-          .insert([dossierData]);
-        
-        if (error) throw error;
-      }
-
-      await loadDossiers();
-      dossierFormModal.closeModal();
-      alert('Dossier saved successfully');
-    } catch (error) {
-      console.error('Error saving dossier:', error);
-      alert('Error saving dossier');
-    } finally {
-      dossierFormModal.setIsSubmitting(false);
-    }
+    router.push(`/admin/silver/dossier/edit/${dossier.id}`);
   };
 
   const handleDeleteDossier = async (dossierId: string) => {
@@ -459,6 +375,37 @@ export default function SilverAdminPanel() {
         }
       }
     });
+  };
+
+  const runMigration = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('You must be logged in to run migrations');
+        return;
+      }
+
+      const response = await fetch('/api/admin/migrate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Migration failed');
+      }
+
+      const result = await response.json();
+      alert(`Migration completed successfully! Updated ${result.crimsonEntriesUpdated} crimson entries and ${result.fragmentEntriesUpdated} fragment entries.`);
+      
+      // Reload data to use the new ordering
+      await loadData();
+    } catch (error) {
+      console.error('Migration error:', error);
+      alert('Migration failed. Please check the console for details.');
+    }
   };
 
   const renderOverview = () => (
@@ -533,6 +480,28 @@ export default function SilverAdminPanel() {
           <p className="text-sm text-gothic-silver/70">Investigation entries</p>
         </motion.div>
       </div>
+
+      {/* Admin Tools Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="mt-8 bg-gothic-charcoal border border-gothic-silver/20 rounded-lg p-6"
+      >
+        <h3 className="text-xl font-semibold text-gothic-silver mb-4">Admin Tools</h3>
+        <div className="flex space-x-4">
+          <button
+            onClick={runMigration}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-all duration-200 flex items-center space-x-2"
+          >
+            <ArrowUpDown className="h-4 w-4" />
+            <span>Add Display Order Columns</span>
+          </button>
+        </div>
+        <p className="text-sm text-gothic-silver/70 mt-2">
+          This migration adds display_order columns to enable drag-and-drop reordering functionality.
+        </p>
+      </motion.div>
     </div>
   );
 
@@ -901,212 +870,6 @@ export default function SilverAdminPanel() {
           {renderContent()}
         </motion.div>
       </div>
-
-      {/* Announcement Form Modal */}
-      {/* Announcement Form Modal */}
-      <FormModal
-        isOpen={announcementFormModal.isOpen}
-        onClose={announcementFormModal.closeModal}
-        title={announcementFormModal.formData?.id ? 'Edit Announcement' : 'Create Announcement'}
-        onSubmit={handleSaveAnnouncement}
-        submitText={announcementFormModal.formData?.id ? 'Update Announcement' : 'Create Announcement'}
-        isSubmitting={announcementFormModal.isSubmitting}
-        theme="silver"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Title
-            </label>
-            <input
-              type="text"
-              value={announcementFormModal.formData?.title || ''}
-              onChange={(e) => announcementFormModal.updateFormData({ title: e.target.value })}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Priority (0-10)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="10"
-              value={announcementFormModal.formData?.priority || 0}
-              onChange={(e) => announcementFormModal.updateFormData({ priority: parseInt(e.target.value) || 0 })}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-            />
-            <p className="text-xs text-gothic-steel mt-1">Higher numbers = higher priority. Values over 5 marked as high priority.</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Content
-            </label>
-            <textarea
-              value={announcementFormModal.formData?.content || ''}
-              onChange={(e) => announcementFormModal.updateFormData({ content: e.target.value })}
-              rows={6}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-              required
-            />
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="announcement_is_active"
-              checked={announcementFormModal.formData?.is_active || false}
-              onChange={(e) => announcementFormModal.updateFormData({ is_active: e.target.checked })}
-              className="mr-2"
-            />
-            <label htmlFor="announcement_is_active" className="text-sm text-gothic-silver">
-              Active
-            </label>
-          </div>
-        </div>
-      </FormModal>
-
-      {/* Dossier Form Modal */}
-      <FormModal
-        isOpen={dossierFormModal.isOpen}
-        onClose={dossierFormModal.closeModal}
-        title={dossierFormModal.formData?.id ? 'Edit Dossier' : 'Create Dossier'}
-        onSubmit={handleSaveDossier}
-        submitText={dossierFormModal.formData?.id ? 'Update Dossier' : 'Create Dossier'}
-        isSubmitting={dossierFormModal.isSubmitting}
-        theme="silver"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Title
-            </label>
-            <input
-              type="text"
-              value={dossierFormModal.formData?.title || ''}
-              onChange={(e) => dossierFormModal.updateFormData({ title: e.target.value })}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Summary
-            </label>
-            <textarea
-              value={dossierFormModal.formData?.summary || ''}
-              onChange={(e) => dossierFormModal.updateFormData({ summary: e.target.value })}
-              rows={3}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-              placeholder="Brief summary of the dossier entry"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Type
-            </label>
-            <select
-              value={dossierFormModal.formData?.type || 'character'}
-              onChange={(e) => dossierFormModal.updateFormData({ type: e.target.value })}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-            >
-              <option value="character">Character</option>
-              <option value="location">Location</option>
-              <option value="event">Event</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              City
-            </label>
-            <select
-              value={dossierFormModal.formData?.city || 'silver'}
-              onChange={(e) => dossierFormModal.updateFormData({ city: e.target.value })}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-            >
-              <option value="silver">Silver</option>
-              <option value="crimson">Crimson</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Classification
-            </label>
-            <select
-              value={dossierFormModal.formData?.classification || 'public'}
-              onChange={(e) => dossierFormModal.updateFormData({ classification: e.target.value })}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-            >
-              <option value="public">Public</option>
-              <option value="confidential">Confidential</option>
-              <option value="secret">Secret</option>
-              <option value="top-secret">Top Secret</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Image URL (Optional)
-            </label>
-            <input
-              type="url"
-              value={dossierFormModal.formData?.image_url || ''}
-              onChange={(e) => dossierFormModal.updateFormData({ image_url: e.target.value })}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-              placeholder="https://example.com/image.jpg"
-            />
-            {/* Image Preview */}
-            {dossierFormModal.formData?.image_url && (
-              <div className="mt-3">
-                <label className="block text-sm font-medium text-gothic-silver mb-2">Preview:</label>
-                <img 
-                  src={dossierFormModal.formData.image_url}
-                  alt="Preview"
-                  className="max-w-full h-48 object-cover rounded border border-gothic-silver/30"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gothic-silver mb-2">
-              Content
-            </label>
-            <textarea
-              value={dossierFormModal.formData?.content || ''}
-              onChange={(e) => dossierFormModal.updateFormData({ content: e.target.value })}
-              rows={8}
-              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
-              required
-            />
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="dossier_is_published"
-              checked={dossierFormModal.formData?.is_published || false}
-              onChange={(e) => dossierFormModal.updateFormData({ is_published: e.target.checked })}
-              className="mr-2"
-            />
-            <label htmlFor="dossier_is_published" className="text-sm text-gothic-silver">
-              Publish immediately
-            </label>
-          </div>
-        </div>
-      </FormModal>
 
       {/* Read Modals */}
       <ReadModal

@@ -10,8 +10,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useReadModal } from '@/hooks/useReadModal';
-import { useFormModal } from '@/hooks/useModalHooks';
-import { FormModal, useConfirmModalComponent } from '@/components/ModalComponents';
+import { useConfirmModalComponent } from '@/components/ModalComponents';
 import { ReadModal } from '@/components/ReadModal';
 import { DragDropTable } from '@/components/DragDropTable';
 
@@ -99,8 +98,6 @@ export default function CrimsonAdminPanel() {
   // Modal hooks
   const ledgerReadModal = useReadModal<CrimsonLedgerEntry>();
   const confessionReadModal = useReadModal<CrimsonConfession>();
-  const announcementFormModal = useFormModal<Partial<Announcement>>();
-  const dossierFormModal = useFormModal<Partial<DossierEntry>>();
   const { ConfirmModalComponent, openConfirmModal } = useConfirmModalComponent();
 
   const loadData = useCallback(async () => {
@@ -124,14 +121,36 @@ export default function CrimsonAdminPanel() {
 
   const loadLedgerEntries = async () => {
     try {
-      const { data, error } = await supabase
+      // Try to order by display_order first, fall back to created_at if column doesn't exist
+      let query = supabase
         .from('crimson_ledger_entries')
-        .select('*')
-        .order('display_order', { ascending: true })
-        .order('created_at', { ascending: false });
+        .select('*');
       
-      if (error) throw error;
-      setLedgerEntries(data || []);
+      try {
+        const { data, error } = await query.order('display_order', { ascending: true });
+        if (error && error.message.includes('column "display_order" does not exist')) {
+          // Fall back to created_at ordering
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('crimson_ledger_entries')
+            .select('*')
+            .order('created_at', { ascending: false });
+          
+          if (fallbackError) throw fallbackError;
+          setLedgerEntries(fallbackData || []);
+        } else {
+          if (error) throw error;
+          setLedgerEntries(data || []);
+        }
+      } catch (err) {
+        // If ordering by display_order fails, use created_at
+        const { data, error } = await supabase
+          .from('crimson_ledger_entries')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        setLedgerEntries(data || []);
+      }
     } catch (error) {
       console.error('Error loading ledger entries:', error);
     }
@@ -259,99 +278,50 @@ export default function CrimsonAdminPanel() {
 
   // Announcement handlers
   const handleCreateAnnouncement = () => {
-    announcementFormModal.openModal({
-      id: '',
-      title: '',
-      content: '',
-      author_id: '',
-      priority: 0,
-      is_active: true,
-      created_at: ''
-    });
+    router.push('/admin/crimson/announcement/create');
   };
 
   const handleEditAnnouncement = (announcement: Announcement) => {
-    announcementFormModal.openModal(announcement);
-  };
-
-  const handleSaveAnnouncement = async () => {
-    if (!announcementFormModal.formData) return;
-    
-    try {
-      announcementFormModal.setIsSubmitting(true);
-      
-      const isEdit = !!announcementFormModal.formData.id;
-      const endpoint = '/api/admin/announcements';
-      const method = isEdit ? 'PUT' : 'POST';
-      
-      const response = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(announcementFormModal.formData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to ${isEdit ? 'update' : 'create'} announcement`);
-      }
-
-      await loadAnnouncements();
-      announcementFormModal.closeModal();
-    } catch (error) {
-      console.error('Error saving announcement:', error);
-      alert(`Failed to ${announcementFormModal.formData.id ? 'update' : 'create'} announcement`);
-    } finally {
-      announcementFormModal.setIsSubmitting(false);
-    }
+    router.push(`/admin/crimson/announcement/edit/${announcement.id}`);
   };
 
   // Dossier handlers
   const handleCreateDossier = () => {
-    dossierFormModal.openModal({
-      id: '',
-      title: '',
-      summary: '',
-      content: '',
-      type: 'Character',
-      city: 'Nexus',
-      classification: 'Unclassified',
-      image_url: '',
-      is_published: false,
-      created_at: '',
-      updated_at: ''
-    });
+    router.push('/admin/crimson/dossier/create');
   };
 
   const handleEditDossier = (dossier: DossierEntry) => {
-    dossierFormModal.openModal(dossier);
+    router.push(`/admin/crimson/dossier/edit/${dossier.id}`);
   };
 
-  const handleSaveDossier = async () => {
-    if (!dossierFormModal.formData) return;
-    
+  const runMigration = async () => {
     try {
-      dossierFormModal.setIsSubmitting(true);
-      
-      const isEdit = !!dossierFormModal.formData.id;
-      const endpoint = '/api/admin/dossiers';
-      const method = isEdit ? 'PUT' : 'POST';
-      
-      const response = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dossierFormModal.formData),
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('You must be logged in to run migrations');
+        return;
+      }
+
+      const response = await fetch('/api/admin/migrate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to ${isEdit ? 'update' : 'create'} dossier`);
+        throw new Error('Migration failed');
       }
 
-      await loadDossiers();
-      dossierFormModal.closeModal();
+      const result = await response.json();
+      alert(`Migration completed successfully! Updated ${result.crimsonEntriesUpdated} crimson entries and ${result.fragmentEntriesUpdated} fragment entries.`);
+      
+      // Reload data to use the new ordering
+      await loadData();
     } catch (error) {
-      console.error('Error saving dossier:', error);
-      alert(`Failed to ${dossierFormModal.formData.id ? 'update' : 'create'} dossier`);
-    } finally {
-      dossierFormModal.setIsSubmitting(false);
+      console.error('Migration error:', error);
+      alert('Migration failed. Please check the console for details.');
     }
   };
 
@@ -582,6 +552,28 @@ export default function CrimsonAdminPanel() {
           <p className="text-sm text-red-400/70">Investigation entries</p>
         </motion.div>
       </div>
+
+      {/* Admin Tools Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="mt-8 bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
+      >
+        <h3 className="text-xl font-semibold text-red-500 mb-4">Admin Tools</h3>
+        <div className="flex space-x-4">
+          <button
+            onClick={runMigration}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-all duration-200 flex items-center space-x-2"
+          >
+            <ArrowUpDown className="h-4 w-4" />
+            <span>Add Display Order Columns</span>
+          </button>
+        </div>
+        <p className="text-sm text-red-400/70 mt-2">
+          This migration adds display_order columns to enable drag-and-drop reordering functionality.
+        </p>
+      </motion.div>
     </div>
   );
 
@@ -1001,211 +993,6 @@ export default function CrimsonAdminPanel() {
           {renderContent()}
         </motion.div>
       </div>
-
-      {/* Announcement Form Modal */}
-      <FormModal
-        isOpen={announcementFormModal.isOpen}
-        onClose={announcementFormModal.closeModal}
-        title={announcementFormModal.formData?.id ? 'Edit Announcement' : 'Create Announcement'}
-        onSubmit={handleSaveAnnouncement}
-        submitText={announcementFormModal.formData?.id ? 'Update Announcement' : 'Create Announcement'}
-        isSubmitting={announcementFormModal.isSubmitting}
-        theme="crimson"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Title
-            </label>
-            <input
-              type="text"
-              value={announcementFormModal.formData?.title || ''}
-              onChange={(e) => announcementFormModal.updateFormData({ title: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Priority (0-10)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="10"
-              value={announcementFormModal.formData?.priority || 0}
-              onChange={(e) => announcementFormModal.updateFormData({ priority: parseInt(e.target.value) || 0 })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-            />
-            <p className="text-xs text-red-400 mt-1">Higher numbers = higher priority. Values over 5 marked as high priority.</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Content
-            </label>
-            <textarea
-              value={announcementFormModal.formData?.content || ''}
-              onChange={(e) => announcementFormModal.updateFormData({ content: e.target.value })}
-              rows={6}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              required
-            />
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="crimson_announcement_is_active"
-              checked={announcementFormModal.formData?.is_active || false}
-              onChange={(e) => announcementFormModal.updateFormData({ is_active: e.target.checked })}
-              className="mr-2"
-            />
-            <label htmlFor="crimson_announcement_is_active" className="text-sm text-red-500">
-              Active
-            </label>
-          </div>
-        </div>
-      </FormModal>
-
-      {/* Dossier Form Modal */}
-      <FormModal
-        isOpen={dossierFormModal.isOpen}
-        onClose={dossierFormModal.closeModal}
-        title={dossierFormModal.formData?.id ? 'Edit Dossier' : 'Create Dossier'}
-        onSubmit={handleSaveDossier}
-        submitText={dossierFormModal.formData?.id ? 'Update Dossier' : 'Create Dossier'}
-        isSubmitting={dossierFormModal.isSubmitting}
-        theme="crimson"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Title
-            </label>
-            <input
-              type="text"
-              value={dossierFormModal.formData?.title || ''}
-              onChange={(e) => dossierFormModal.updateFormData({ title: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Summary
-            </label>
-            <textarea
-              value={dossierFormModal.formData?.summary || ''}
-              onChange={(e) => dossierFormModal.updateFormData({ summary: e.target.value })}
-              rows={3}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              placeholder="Brief summary of the dossier entry"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Type
-            </label>
-            <select
-              value={dossierFormModal.formData?.type || 'character'}
-              onChange={(e) => dossierFormModal.updateFormData({ type: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-            >
-              <option value="character">Character</option>
-              <option value="location">Location</option>
-              <option value="event">Event</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              City
-            </label>
-            <select
-              value={dossierFormModal.formData?.city || 'crimson'}
-              onChange={(e) => dossierFormModal.updateFormData({ city: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-            >
-              <option value="crimson">Crimson</option>
-              <option value="silver">Silver</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Classification
-            </label>
-            <select
-              value={dossierFormModal.formData?.classification || 'public'}
-              onChange={(e) => dossierFormModal.updateFormData({ classification: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-            >
-              <option value="public">Public</option>
-              <option value="confidential">Confidential</option>
-              <option value="secret">Secret</option>
-              <option value="top-secret">Top Secret</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Image URL (Optional)
-            </label>
-            <input
-              type="url"
-              value={dossierFormModal.formData?.image_url || ''}
-              onChange={(e) => dossierFormModal.updateFormData({ image_url: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              placeholder="https://example.com/image.jpg"
-            />
-            {/* Image Preview */}
-            {dossierFormModal.formData?.image_url && (
-              <div className="mt-3">
-                <label className="block text-sm font-medium text-red-500 mb-2">Preview:</label>
-                <img 
-                  src={dossierFormModal.formData.image_url}
-                  alt="Preview"
-                  className="max-w-full h-48 object-cover rounded border border-red-500/30"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Content
-            </label>
-            <textarea
-              value={dossierFormModal.formData?.content || ''}
-              onChange={(e) => dossierFormModal.updateFormData({ content: e.target.value })}
-              rows={8}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              required
-            />
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="crimson_dossier_is_published"
-              checked={dossierFormModal.formData?.is_published || false}
-              onChange={(e) => dossierFormModal.updateFormData({ is_published: e.target.checked })}
-              className="mr-2"
-            />
-            <label htmlFor="crimson_dossier_is_published" className="text-sm text-red-500">
-              Publish immediately
-            </label>
-          </div>
-        </div>
-      </FormModal>
 
       {/* Read Modals */}
       <ReadModal
