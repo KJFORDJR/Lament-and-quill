@@ -902,7 +902,114 @@ export default function SilverAdminPanel() {
         </motion.div>
       </div>
 
-      {/* Announcement Form Modal */}
+      {/* Fragment Form Modal */}
+      <FormModal
+        isOpen={fragmentFormModal.isOpen}
+        onClose={fragmentFormModal.closeModal}
+        title={fragmentFormModal.formData?.id ? 'Edit Fragment' : 'Create Fragment'}
+        onSubmit={handleSaveFragment}
+        submitText={fragmentFormModal.formData?.id ? 'Update Fragment' : 'Create Fragment'}
+        isSubmitting={fragmentFormModal.isSubmitting}
+        theme="silver"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Title
+            </label>
+            <input
+              type="text"
+              value={fragmentFormModal.formData?.title || ''}
+              onChange={(e) => fragmentFormModal.updateFormData({ title: e.target.value })}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Author Name
+            </label>
+            <input
+              type="text"
+              value={fragmentFormModal.formData?.author_name || ''}
+              onChange={(e) => fragmentFormModal.updateFormData({ author_name: e.target.value })}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Category
+            </label>
+            <select
+              value={fragmentFormModal.formData?.category || 'Transmissions'}
+              onChange={(e) => fragmentFormModal.updateFormData({ category: e.target.value })}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+            >
+              <option value="Transmissions">Transmissions</option>
+              <option value="Lament">Lament</option>
+              <option value="Reflection">Reflection</option>
+              <option value="Memory">Memory</option>
+              <option value="Sorrow">Sorrow</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Excerpt
+            </label>
+            <textarea
+              value={fragmentFormModal.formData?.excerpt || ''}
+              onChange={(e) => fragmentFormModal.updateFormData({ excerpt: e.target.value })}
+              rows={3}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+              placeholder="Brief excerpt or summary (optional)"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Read Time
+            </label>
+            <input
+              type="text"
+              value={fragmentFormModal.formData?.read_time || ''}
+              onChange={(e) => fragmentFormModal.updateFormData({ read_time: e.target.value })}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+              placeholder="e.g., '5 min read' (optional)"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gothic-silver mb-2">
+              Content
+            </label>
+            <textarea
+              value={fragmentFormModal.formData?.content || ''}
+              onChange={(e) => fragmentFormModal.updateFormData({ content: e.target.value })}
+              rows={8}
+              className="w-full bg-gothic-steel border border-gothic-silver/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-gothic-silver/50"
+              required
+            />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="is_published"
+              checked={fragmentFormModal.formData?.is_published || false}
+              onChange={(e) => fragmentFormModal.updateFormData({ is_published: e.target.checked })}
+              className="mr-2"
+            />
+            <label htmlFor="is_published" className="text-sm text-gothic-silver">
+              Publish immediately
+            </label>
+          </div>
+        </div>
+      </FormModal>
+
       {/* Announcement Form Modal */}
       <FormModal
         isOpen={announcementFormModal.isOpen}

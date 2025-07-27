@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
   Plus, Edit3, Trash2, Eye, Users, BarChart3, 
-  Settings, MessageCircle, FileText, Shield, BookOpen, Database, Megaphone 
+  Settings, MessageCircle, FileText, Shield, BookOpen, Database, Megaphone, ArrowUpDown 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +13,7 @@ import { useReadModal } from '@/hooks/useReadModal';
 import { useFormModal } from '@/hooks/useModalHooks';
 import { FormModal, useConfirmModalComponent } from '@/components/ModalComponents';
 import { ReadModal } from '@/components/ReadModal';
+import { DragDropTable } from '@/components/DragDropTable';
 
 interface CrimsonLedgerEntry {
   id: string;
@@ -26,6 +28,7 @@ interface CrimsonLedgerEntry {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  display_order?: number;
 }
 
 interface CrimsonConfession {
@@ -77,12 +80,14 @@ interface AdminStats {
 
 export default function CrimsonAdminPanel() {
   const { user } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
   const [ledgerEntries, setLedgerEntries] = useState<CrimsonLedgerEntry[]>([]);
   const [confessions, setConfessions] = useState<CrimsonConfession[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dossiers, setDossiers] = useState<DossierEntry[]>([]);
   const [showDeletedConfessions, setShowDeletedConfessions] = useState(false);
+  const [isReorderingLedger, setIsReorderingLedger] = useState(false);
   const [stats, setStats] = useState<AdminStats>({
     totalLedgerEntries: 0,
     totalConfessions: 0,
@@ -94,7 +99,6 @@ export default function CrimsonAdminPanel() {
   // Modal hooks
   const ledgerReadModal = useReadModal<CrimsonLedgerEntry>();
   const confessionReadModal = useReadModal<CrimsonConfession>();
-  const ledgerFormModal = useFormModal<Partial<CrimsonLedgerEntry>>();
   const announcementFormModal = useFormModal<Partial<Announcement>>();
   const dossierFormModal = useFormModal<Partial<DossierEntry>>();
   const { ConfirmModalComponent, openConfirmModal } = useConfirmModalComponent();
@@ -123,6 +127,7 @@ export default function CrimsonAdminPanel() {
       const { data, error } = await supabase
         .from('crimson_ledger_entries')
         .select('*')
+        .order('display_order', { ascending: true })
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -175,6 +180,38 @@ export default function CrimsonAdminPanel() {
     }
   };
 
+  const handleLedgerReorder = async (reorderedEntries: CrimsonLedgerEntry[]) => {
+    // Update local state immediately for better UX
+    setLedgerEntries(reorderedEntries);
+    
+    try {
+      // Get user token for API call
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token');
+      }
+
+      const response = await fetch('/api/admin/crimson/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          reorderedItems: reorderedEntries.map(entry => ({ id: entry.id })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update order');
+      }
+    } catch (error) {
+      console.error('Error updating ledger order:', error);
+      // Reload entries on error to restore correct order
+      loadLedgerEntries();
+    }
+  };
+
   const loadDossiers = async () => {
     try {
       const { data, error } = await supabase
@@ -213,64 +250,108 @@ export default function CrimsonAdminPanel() {
 
   // Ledger entry handlers
   const handleCreateLedgerEntry = () => {
-    ledgerFormModal.openModal({
+    router.push('/admin/crimson/create');
+  };
+
+  const handleEditLedgerEntry = (entry: CrimsonLedgerEntry) => {
+    router.push(`/admin/crimson/edit/${entry.id}`);
+  };
+
+  // Announcement handlers
+  const handleCreateAnnouncement = () => {
+    announcementFormModal.openModal({
       id: '',
       title: '',
-      excerpt: '',
       content: '',
-      author_name: '',
-      category: 'Chronicle',
-      read_time: '',
+      author_id: '',
+      priority: 0,
+      is_active: true,
+      created_at: ''
+    });
+  };
+
+  const handleEditAnnouncement = (announcement: Announcement) => {
+    announcementFormModal.openModal(announcement);
+  };
+
+  const handleSaveAnnouncement = async () => {
+    if (!announcementFormModal.formData) return;
+    
+    try {
+      announcementFormModal.setIsSubmitting(true);
+      
+      const isEdit = !!announcementFormModal.formData.id;
+      const endpoint = '/api/admin/announcements';
+      const method = isEdit ? 'PUT' : 'POST';
+      
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(announcementFormModal.formData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${isEdit ? 'update' : 'create'} announcement`);
+      }
+
+      await loadAnnouncements();
+      announcementFormModal.closeModal();
+    } catch (error) {
+      console.error('Error saving announcement:', error);
+      alert(`Failed to ${announcementFormModal.formData.id ? 'update' : 'create'} announcement`);
+    } finally {
+      announcementFormModal.setIsSubmitting(false);
+    }
+  };
+
+  // Dossier handlers
+  const handleCreateDossier = () => {
+    dossierFormModal.openModal({
+      id: '',
+      title: '',
+      summary: '',
+      content: '',
+      type: 'Character',
+      city: 'Nexus',
+      classification: 'Unclassified',
+      image_url: '',
       is_published: false,
       created_at: '',
       updated_at: ''
     });
   };
 
-  const handleEditLedgerEntry = (entry: CrimsonLedgerEntry) => {
-    ledgerFormModal.openModal(entry);
+  const handleEditDossier = (dossier: DossierEntry) => {
+    dossierFormModal.openModal(dossier);
   };
 
-  const handleSaveLedgerEntry = async () => {
-    if (!ledgerFormModal.formData) return;
+  const handleSaveDossier = async () => {
+    if (!dossierFormModal.formData) return;
     
     try {
-      ledgerFormModal.setIsSubmitting(true);
+      dossierFormModal.setIsSubmitting(true);
       
-      const entryData = {
-        title: ledgerFormModal.formData.title,
-        excerpt: ledgerFormModal.formData.excerpt,
-        content: ledgerFormModal.formData.content,
-        author_name: ledgerFormModal.formData.author_name,
-        category: ledgerFormModal.formData.category,
-        read_time: ledgerFormModal.formData.read_time,
-        is_published: ledgerFormModal.formData.is_published,
-        created_by: user?.id
-      };
+      const isEdit = !!dossierFormModal.formData.id;
+      const endpoint = '/api/admin/dossiers';
+      const method = isEdit ? 'PUT' : 'POST';
+      
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dossierFormModal.formData),
+      });
 
-      if (ledgerFormModal.formData.id) {
-        const { error } = await supabase
-          .from('crimson_ledger_entries')
-          .update(entryData)
-          .eq('id', ledgerFormModal.formData.id);
-        
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('crimson_ledger_entries')
-          .insert([entryData]);
-        
-        if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`Failed to ${isEdit ? 'update' : 'create'} dossier`);
       }
 
-      await loadLedgerEntries();
-      ledgerFormModal.closeModal();
-      alert('Ledger entry saved successfully');
+      await loadDossiers();
+      dossierFormModal.closeModal();
     } catch (error) {
-      console.error('Error saving ledger entry:', error);
-      alert('Error saving ledger entry');
+      console.error('Error saving dossier:', error);
+      alert(`Failed to ${dossierFormModal.formData.id ? 'update' : 'create'} dossier`);
     } finally {
-      ledgerFormModal.setIsSubmitting(false);
+      dossierFormModal.setIsSubmitting(false);
     }
   };
 
@@ -382,62 +463,6 @@ export default function CrimsonAdminPanel() {
   };
 
   // Announcement handlers
-  const handleCreateAnnouncement = () => {
-    announcementFormModal.openModal({
-      id: '',
-      title: '',
-      content: '',
-      author_id: user?.id || '',
-      priority: 0,
-      is_active: true,
-      created_at: ''
-    });
-  };
-
-  const handleEditAnnouncement = (announcement: Announcement) => {
-    announcementFormModal.openModal(announcement);
-  };
-
-  const handleSaveAnnouncement = async () => {
-    if (!announcementFormModal.formData) return;
-    
-    try {
-      announcementFormModal.setIsSubmitting(true);
-      
-      const announcementData = {
-        title: announcementFormModal.formData.title,
-        content: announcementFormModal.formData.content,
-        author_id: user?.id,
-        priority: announcementFormModal.formData.priority || 0,
-        is_active: announcementFormModal.formData.is_active || false
-      };
-
-      if (announcementFormModal.formData.id) {
-        const { error } = await supabase
-          .from('announcements')
-          .update(announcementData)
-          .eq('id', announcementFormModal.formData.id);
-        
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('announcements')
-          .insert([announcementData]);
-        
-        if (error) throw error;
-      }
-
-      await loadAnnouncements();
-      announcementFormModal.closeModal();
-      alert('Announcement saved successfully');
-    } catch (error) {
-      console.error('Error saving announcement:', error);
-      alert('Error saving announcement');
-    } finally {
-      announcementFormModal.setIsSubmitting(false);
-    }
-  };
-
   const handleDeleteAnnouncement = async (announcementId: string) => {
     openConfirmModal({
       title: 'Delete Announcement',
@@ -461,70 +486,7 @@ export default function CrimsonAdminPanel() {
     });
   };
 
-  // Dossier handlers
-  const handleCreateDossier = () => {
-    dossierFormModal.openModal({
-      id: '',
-      title: '',
-      summary: '',
-      content: '',
-      type: 'character',
-      city: 'crimson',
-      classification: 'public',
-      image_url: '',
-      is_published: false,
-      created_at: '',
-      updated_at: ''
-    });
-  };
-
-  const handleEditDossier = (dossier: DossierEntry) => {
-    dossierFormModal.openModal(dossier);
-  };
-
-  const handleSaveDossier = async () => {
-    if (!dossierFormModal.formData) return;
-    
-    try {
-      dossierFormModal.setIsSubmitting(true);
-      
-      const dossierData = {
-        title: dossierFormModal.formData.title,
-        summary: dossierFormModal.formData.summary,
-        content: dossierFormModal.formData.content,
-        type: dossierFormModal.formData.type,
-        city: dossierFormModal.formData.city || 'crimson',
-        classification: dossierFormModal.formData.classification || 'public',
-        image_url: dossierFormModal.formData.image_url,
-        is_published: dossierFormModal.formData.is_published
-      };
-
-      if (dossierFormModal.formData.id) {
-        const { error } = await supabase
-          .from('dossier_entries')
-          .update(dossierData)
-          .eq('id', dossierFormModal.formData.id);
-        
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('dossier_entries')
-          .insert([dossierData]);
-        
-        if (error) throw error;
-      }
-
-      await loadDossiers();
-      dossierFormModal.closeModal();
-      alert('Dossier saved successfully');
-    } catch (error) {
-      console.error('Error saving dossier:', error);
-      alert('Error saving dossier');
-    } finally {
-      dossierFormModal.setIsSubmitting(false);
-    }
-  };
-
+  // Dossier handlers  
   const handleDeleteDossier = async (dossierId: string) => {
     openConfirmModal({
       title: 'Delete Dossier',
@@ -627,74 +589,107 @@ export default function CrimsonAdminPanel() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-red-500">Crimson Ledger Entries</h2>
-        <button
-          onClick={handleCreateLedgerEntry}
-          className="bg-red-500 hover:bg-red-600 text-gothic-black px-4 py-2 rounded-md transition-all duration-200 flex items-center space-x-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Create Entry</span>
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setIsReorderingLedger(!isReorderingLedger)}
+            className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center space-x-2 ${
+              isReorderingLedger 
+                ? 'bg-green-500 hover:bg-green-600 text-gothic-black' 
+                : 'bg-gray-500 hover:bg-gray-600 text-white'
+            }`}
+          >
+            <ArrowUpDown className="h-4 w-4" />
+            <span>{isReorderingLedger ? 'Finish Reordering' : 'Reorder'}</span>
+          </button>
+          <button
+            onClick={handleCreateLedgerEntry}
+            className="bg-red-500 hover:bg-red-600 text-gothic-black px-4 py-2 rounded-md transition-all duration-200 flex items-center space-x-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Create Entry</span>
+          </button>
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full bg-gothic-charcoal border border-red-500/20 rounded-lg">
-          <thead>
-            <tr className="border-b border-red-500/20">
-              <th className="text-left p-4 text-red-500">Title</th>
-              <th className="text-left p-4 text-red-500">Author</th>
-              <th className="text-left p-4 text-red-500">Category</th>
-              <th className="text-left p-4 text-red-500">Read Time</th>
-              <th className="text-left p-4 text-red-500">Status</th>
-              <th className="text-left p-4 text-red-500">Created</th>
-              <th className="text-left p-4 text-red-500">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ledgerEntries.map((entry) => (
-              <tr key={entry.id} className="border-b border-red-500/10 hover:bg-red-500/5">
-                <td className="p-4 text-gothic-silver/90">{entry.title}</td>
-                <td className="p-4 text-gothic-silver/70">{entry.author_name}</td>
-                <td className="p-4 text-gothic-silver/70">{entry.category}</td>
-                <td className="p-4 text-gothic-silver/70">{entry.read_time || 'N/A'}</td>
-                <td className="p-4">
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    entry.is_published 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-red-500/20 text-red-400'
-                  }`}>
-                    {entry.is_published ? 'Published' : 'Draft'}
-                  </span>
-                </td>
-                <td className="p-4 text-gothic-silver/70">
-                  {new Date(entry.created_at).toLocaleDateString()}
-                </td>
-                <td className="p-4">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleReadLedgerEntry(entry)}
-                      className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleEditLedgerEntry(entry)}
-                      className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteLedgerEntry(entry.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DragDropTable
+        items={ledgerEntries}
+        onReorder={handleLedgerReorder}
+        isReordering={isReorderingLedger}
+        columns={[
+          {
+            key: 'title',
+            header: 'Title',
+            render: (entry: CrimsonLedgerEntry) => (
+              <span className="text-gothic-silver/90">{entry.title}</span>
+            ),
+          },
+          {
+            key: 'author',
+            header: 'Author',
+            render: (entry: CrimsonLedgerEntry) => (
+              <span className="text-gothic-silver/70">{entry.author_name}</span>
+            ),
+          },
+          {
+            key: 'category',
+            header: 'Category',
+            render: (entry: CrimsonLedgerEntry) => (
+              <span className="text-gothic-silver/70">{entry.category}</span>
+            ),
+          },
+          {
+            key: 'read_time',
+            header: 'Read Time',
+            render: (entry: CrimsonLedgerEntry) => (
+              <span className="text-gothic-silver/70">{entry.read_time || 'N/A'}</span>
+            ),
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            render: (entry: CrimsonLedgerEntry) => (
+              <span className={`px-2 py-1 rounded text-xs ${
+                entry.is_published 
+                  ? 'bg-green-500/20 text-green-400' 
+                  : 'bg-red-500/20 text-red-400'
+              }`}>
+                {entry.is_published ? 'Published' : 'Draft'}
+              </span>
+            ),
+          },
+          {
+            key: 'created',
+            header: 'Created',
+            render: (entry: CrimsonLedgerEntry) => (
+              <span className="text-gothic-silver/70">
+                {new Date(entry.created_at).toLocaleDateString()}
+              </span>
+            ),
+          },
+        ]}
+        actionsColumn={(entry: CrimsonLedgerEntry) => (
+          <div className="flex space-x-2">
+            <button
+              onClick={() => handleReadLedgerEntry(entry)}
+              className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => handleEditLedgerEntry(entry)}
+              className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
+            >
+              <Edit3 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => handleDeleteLedgerEntry(entry.id)}
+              className="text-red-400 hover:text-red-300 transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      />
     </div>
   );
 
@@ -1006,114 +1001,6 @@ export default function CrimsonAdminPanel() {
           {renderContent()}
         </motion.div>
       </div>
-
-      {/* Ledger Entry Form Modal */}
-      <FormModal
-        isOpen={ledgerFormModal.isOpen}
-        onClose={ledgerFormModal.closeModal}
-        title={ledgerFormModal.formData?.id ? 'Edit Ledger Entry' : 'Create Ledger Entry'}
-        onSubmit={handleSaveLedgerEntry}
-        submitText={ledgerFormModal.formData?.id ? 'Update Entry' : 'Create Entry'}
-        isSubmitting={ledgerFormModal.isSubmitting}
-        theme="crimson"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Title
-            </label>
-            <input
-              type="text"
-              value={ledgerFormModal.formData?.title || ''}
-              onChange={(e) => ledgerFormModal.updateFormData({ title: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Author Name
-            </label>
-            <input
-              type="text"
-              value={ledgerFormModal.formData?.author_name || ''}
-              onChange={(e) => ledgerFormModal.updateFormData({ author_name: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Category
-            </label>
-            <select
-              value={ledgerFormModal.formData?.category || 'Chronicle'}
-              onChange={(e) => ledgerFormModal.updateFormData({ category: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-            >
-              <option value="Chronicle">Chronicle</option>
-              <option value="Investigation">Investigation</option>
-              <option value="Mystery">Mystery</option>
-              <option value="Revelation">Revelation</option>
-              <option value="Conspiracy">Conspiracy</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Excerpt
-            </label>
-            <textarea
-              value={ledgerFormModal.formData?.excerpt || ''}
-              onChange={(e) => ledgerFormModal.updateFormData({ excerpt: e.target.value })}
-              rows={3}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              placeholder="Brief excerpt or summary (optional)"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Read Time
-            </label>
-            <input
-              type="text"
-              value={ledgerFormModal.formData?.read_time || ''}
-              onChange={(e) => ledgerFormModal.updateFormData({ read_time: e.target.value })}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              placeholder="e.g., '5 min read' (optional)"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-red-500 mb-2">
-              Content
-            </label>
-            <textarea
-              value={ledgerFormModal.formData?.content || ''}
-              onChange={(e) => ledgerFormModal.updateFormData({ content: e.target.value })}
-              rows={8}
-              className="w-full bg-gothic-steel border border-red-500/30 rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              required
-            />
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="ledger_is_published"
-              checked={ledgerFormModal.formData?.is_published || false}
-              onChange={(e) => ledgerFormModal.updateFormData({ is_published: e.target.checked })}
-              className="mr-2"
-            />
-            <label htmlFor="ledger_is_published" className="text-sm text-red-500">
-              Publish immediately
-            </label>
-          </div>
-        </div>
-      </FormModal>
 
       {/* Announcement Form Modal */}
       <FormModal
