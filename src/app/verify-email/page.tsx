@@ -37,6 +37,21 @@ export default function VerifyEmailPage() {
         searchParams: window.location.search
       });
 
+      // Check if user is already authenticated (verification may have already happened)
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user && user.email_confirmed_at) {
+        console.log('User is already verified:', user.email);
+        setStatus('success');
+        setMessage('Your email has been verified successfully! Welcome to the convergence.');
+        setUserEmail(user.email || '');
+        
+        setTimeout(() => {
+          router.push('/login?verified=true');
+        }, 3000);
+        return;
+      }
+
       // Check for errors in URL first
       if (error) {
         console.error('URL contains error:', error, error_description);
@@ -148,9 +163,27 @@ export default function VerifyEmailPage() {
           setMessage('Unable to verify email. Please try registering again or contact support.');
         }
       } else {
-        console.log('No valid verification parameters found');
-        setStatus('error');
-        setMessage('Invalid verification link. Please check your email and try again, or register for a new account.');
+        // No verification parameters found - check if user is already authenticated
+        console.log('No valid verification parameters found, checking auth status...');
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user && user.email_confirmed_at) {
+          console.log('User is already verified (no params):', user.email);
+          setStatus('success');
+          setMessage('Your email has been verified successfully! Welcome to the convergence.');
+          setUserEmail(user.email || '');
+          
+          setTimeout(() => {
+            router.push('/login?verified=true');
+          }, 3000);
+        } else if (user && !user.email_confirmed_at) {
+          setStatus('error');
+          setMessage('Your account was created but email verification is still pending. Please check your email for the verification link.');
+        } else {
+          setStatus('error');
+          setMessage('Invalid verification link. Please check your email and try again, or register for a new account.');
+        }
       }
     };
 
