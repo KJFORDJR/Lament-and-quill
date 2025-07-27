@@ -245,11 +245,11 @@ export default function Dossier() {
                   }`}>
                     {/* Image Section */}
                     {entry.image_url && (
-                      <div className="mb-4 overflow-hidden rounded-lg">
+                      <div className="mb-4 overflow-hidden rounded-lg bg-gothic-black/50 p-2">
                         <img 
                           src={entry.image_url} 
                           alt={entry.title}
-                          className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                          className="w-full max-h-48 object-contain transition-transform duration-300 group-hover:scale-105 mx-auto"
                           onError={(e) => {
                             // Hide image if it fails to load
                             e.currentTarget.style.display = 'none';
@@ -326,11 +326,11 @@ export default function Dossier() {
           <>
             {/* Image Section */}
             {readingDossier.image_url && (
-              <div className="mb-6">
+              <div className="mb-6 bg-gothic-black/50 p-4 rounded-lg">
                 <img 
                   src={readingDossier.image_url} 
                   alt={readingDossier.title}
-                  className="w-full max-h-80 object-cover rounded-lg border border-gothic-dark-gray/30"
+                  className="w-full max-h-80 object-contain rounded-lg border border-gothic-dark-gray/30 mx-auto"
                   onError={(e) => {
                     // Hide image if it fails to load
                     e.currentTarget.style.display = 'none';
