@@ -47,18 +47,58 @@ export default function FragmentsOfLament() {
 
   const fetchFragmentsWithUser = async (currentUser: any = user) => {
     try {
-      let query = supabase
-        .from('lament_fragments_entries')
-        .select('*')
-        .eq('is_published', true)
-        .order('published_at', { ascending: false });
+      // Try to order by display_order first, fall back to published_at if column doesn't exist
+      let data, error;
+      
+      try {
+        let query = supabase
+          .from('lament_fragments_entries')
+          .select('*')
+          .eq('is_published', true)
+          .order('display_order', { ascending: true });
 
-      // Apply limit for non-authenticated users
-      if (!currentUser) {
-        query = query.limit(GUEST_ENTRY_LIMIT);
+        // Apply limit for non-authenticated users
+        if (!currentUser) {
+          query = query.limit(GUEST_ENTRY_LIMIT);
+        }
+
+        const result = await query;
+        
+        if (result.error && result.error.message.includes('column "display_order" does not exist')) {
+          // Fall back to published_at ordering
+          let fallbackQuery = supabase
+            .from('lament_fragments_entries')
+            .select('*')
+            .eq('is_published', true)
+            .order('published_at', { ascending: false });
+
+          if (!currentUser) {
+            fallbackQuery = fallbackQuery.limit(GUEST_ENTRY_LIMIT);
+          }
+
+          const fallbackResult = await fallbackQuery;
+          data = fallbackResult.data;
+          error = fallbackResult.error;
+        } else {
+          data = result.data;
+          error = result.error;
+        }
+      } catch (err) {
+        // If ordering by display_order fails, use published_at
+        let fallbackQuery = supabase
+          .from('lament_fragments_entries')
+          .select('*')
+          .eq('is_published', true)
+          .order('published_at', { ascending: false });
+
+        if (!currentUser) {
+          fallbackQuery = fallbackQuery.limit(GUEST_ENTRY_LIMIT);
+        }
+
+        const fallbackResult = await fallbackQuery;
+        data = fallbackResult.data;
+        error = fallbackResult.error;
       }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching fragments:', error);

@@ -377,37 +377,6 @@ export default function SilverAdminPanel() {
     });
   };
 
-  const runMigration = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        alert('You must be logged in to run migrations');
-        return;
-      }
-
-      const response = await fetch('/api/admin/migrate', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Migration failed');
-      }
-
-      const result = await response.json();
-      alert(`Migration completed successfully! Updated ${result.crimsonEntriesUpdated} crimson entries and ${result.fragmentEntriesUpdated} fragment entries.`);
-      
-      // Reload data to use the new ordering
-      await loadData();
-    } catch (error) {
-      console.error('Migration error:', error);
-      alert('Migration failed. Please check the console for details.');
-    }
-  };
-
   const renderOverview = () => (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -480,28 +449,6 @@ export default function SilverAdminPanel() {
           <p className="text-sm text-gothic-silver/70">Investigation entries</p>
         </motion.div>
       </div>
-
-      {/* Admin Tools Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="mt-8 bg-gothic-charcoal border border-gothic-silver/20 rounded-lg p-6"
-      >
-        <h3 className="text-xl font-semibold text-gothic-silver mb-4">Admin Tools</h3>
-        <div className="flex space-x-4">
-          <button
-            onClick={runMigration}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-all duration-200 flex items-center space-x-2"
-          >
-            <ArrowUpDown className="h-4 w-4" />
-            <span>Add Display Order Columns</span>
-          </button>
-        </div>
-        <p className="text-sm text-gothic-silver/70 mt-2">
-          This migration adds display_order columns to enable drag-and-drop reordering functionality.
-        </p>
-      </motion.div>
     </div>
   );
 
