@@ -67,6 +67,8 @@ export default function SystemSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSMTPPassword, setShowSMTPPassword] = useState(false);
+  const [smtpTesting, setSMTPTesting] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -183,6 +185,39 @@ export default function SystemSettingsPage() {
 
   const handleInputChange = (field: keyof SystemConfig, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }));
+  };
+
+  const testSMTPConnection = async () => {
+    if (!testEmail) {
+      alert('Please enter a test email address');
+      return;
+    }
+
+    setSMTPTesting(true);
+    try {
+      const response = await fetch('/api/test-smtp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          testEmail: testEmail
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`✅ Resend SMTP test successful!\n\nEmail sent to: ${testEmail}\nProvider: ${result.provider}\nMessage ID: ${result.messageId}`);
+      } else {
+        alert(`❌ SMTP test failed:\n\n${result.error}\n\nProvider: ${result.provider || 'Unknown'}`);
+      }
+    } catch (error) {
+      console.error('SMTP test error:', error);
+      alert('❌ SMTP test failed: Network error');
+    } finally {
+      setSMTPTesting(false);
+    }
   };
 
   if (loading) {
@@ -470,8 +505,8 @@ export default function SystemSettingsPage() {
               <h2 className="text-xl font-gothic font-bold text-gothic-silver">Email Configuration</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2 flex items-center justify-between mb-4">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <div className="text-gothic-silver font-medium">Email Notifications</div>
                   <div className="text-sm text-gothic-steel">Send system email notifications</div>
@@ -486,64 +521,148 @@ export default function SystemSettingsPage() {
                   <div className="w-11 h-6 bg-gothic-dark-gray peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                 </label>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gothic-silver mb-2">
-                  SMTP Host
-                </label>
-                <input
-                  type="text"
-                  value={config.smtp_host || ''}
-                  onChange={(e) => handleInputChange('smtp_host', e.target.value)}
-                  className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
-                  placeholder="mail.example.com"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gothic-silver mb-2">
-                  SMTP Port
-                </label>
-                <input
-                  type="number"
-                  value={config.smtp_port || 587}
-                  onChange={(e) => handleInputChange('smtp_port', parseInt(e.target.value))}
-                  className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gothic-silver mb-2">
-                  SMTP Username
-                </label>
-                <input
-                  type="text"
-                  value={config.smtp_username || ''}
-                  onChange={(e) => handleInputChange('smtp_username', e.target.value)}
-                  className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gothic-silver mb-2">
-                  SMTP Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showSMTPPassword ? 'text' : 'password'}
-                    value={config.smtp_password || ''}
-                    onChange={(e) => handleInputChange('smtp_password', e.target.value)}
-                    className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 pr-10 text-gothic-silver focus:outline-none focus:border-gothic-silver"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSMTPPassword(!showSMTPPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gothic-steel hover:text-gothic-silver"
-                  >
-                    {showSMTPPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+
+              {/* Resend SMTP Configuration */}
+              <div className="bg-gothic-charcoal/30 border border-gothic-crimson/30 rounded-lg p-6">
+                <h3 className="text-lg font-gothic text-gothic-crimson mb-4 flex items-center gap-2">
+                  <Mail className="text-gothic-crimson" size={20} />
+                  Resend SMTP Configuration
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Current Configuration Display */}
+                  <div className="bg-gothic-dark-gray/50 border border-gothic-steel/30 rounded-lg p-4">
+                    <h4 className="text-gothic-silver font-bold mb-3">Current Resend Settings:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gothic-steel">SMTP Host:</span>
+                        <span className="text-gothic-silver font-mono">smtp.resend.com</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gothic-steel">SMTP Port:</span>
+                        <span className="text-gothic-silver font-mono">587</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gothic-steel">Security:</span>
+                        <span className="text-gothic-silver font-mono">STARTTLS</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gothic-steel">Provider:</span>
+                        <span className="text-gothic-crimson font-mono">Resend</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Test SMTP Section */}
+                  <div className="bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-lg p-4">
+                    <h4 className="text-gothic-silver font-medium mb-3 flex items-center gap-2">
+                      <Mail size={16} />
+                      Test Resend SMTP Configuration
+                    </h4>
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <input
+                          type="email"
+                          value={testEmail}
+                          onChange={(e) => setTestEmail(e.target.value)}
+                          placeholder="Enter test email address"
+                          className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-crimson"
+                        />
+                      </div>
+                      <button
+                        onClick={testSMTPConnection}
+                        disabled={smtpTesting || !testEmail}
+                        className="cyber-button flex items-center space-x-2 whitespace-nowrap disabled:opacity-50"
+                      >
+                        <Mail size={16} />
+                        <span>{smtpTesting ? 'Testing...' : 'Test Resend'}</span>
+                      </button>
+                    </div>
+                    <p className="text-sm text-gothic-steel mt-2">
+                      This will send a branded test email to verify your Resend SMTP configuration.
+                    </p>
+                  </div>
+
+                  {/* Resend Benefits */}
+                  <div className="bg-gothic-dark-gray/20 border border-gothic-silver/20 rounded-lg p-4">
+                    <h4 className="text-gothic-silver font-bold mb-3">Resend Advantages:</h4>
+                    <ul className="text-gothic-steel text-sm space-y-1">
+                      <li>• <span className="text-gothic-crimson">3,000 emails/month</span> free tier</li>
+                      <li>• <span className="text-gothic-crimson">99.9% uptime SLA</span> guaranteed</li>
+                      <li>• <span className="text-gothic-crimson">Superior deliverability</span> rates</li>
+                      <li>• <span className="text-gothic-crimson">Real-time analytics</span> and tracking</li>
+                      <li>• <span className="text-gothic-crimson">Custom domains</span> supported</li>
+                      <li>• <span className="text-gothic-crimson">Modern API</span> integration</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
+
+              {/* Legacy SMTP Fields (for reference/backup) */}
+              <details className="bg-gothic-dark-gray/10 border border-gothic-steel/20 rounded-lg">
+                <summary className="cursor-pointer p-4 text-gothic-steel hover:text-gothic-silver">
+                  Legacy SMTP Configuration (Backup/Reference)
+                </summary>
+                <div className="p-4 pt-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gothic-silver mb-2">
+                      SMTP Host
+                    </label>
+                    <input
+                      type="text"
+                      value={config.smtp_host || ''}
+                      onChange={(e) => handleInputChange('smtp_host', e.target.value)}
+                      className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
+                      placeholder="smtp.resend.com"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gothic-silver mb-2">
+                      SMTP Port
+                    </label>
+                    <input
+                      type="number"
+                      value={config.smtp_port || 587}
+                      onChange={(e) => handleInputChange('smtp_port', parseInt(e.target.value))}
+                      className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gothic-silver mb-2">
+                      SMTP Username
+                    </label>
+                    <input
+                      type="text"
+                      value={config.smtp_username || ''}
+                      onChange={(e) => handleInputChange('smtp_username', e.target.value)}
+                      className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 text-gothic-silver focus:outline-none focus:border-gothic-silver"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gothic-silver mb-2">
+                      SMTP Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showSMTPPassword ? 'text' : 'password'}
+                        value={config.smtp_password || ''}
+                        onChange={(e) => handleInputChange('smtp_password', e.target.value)}
+                        className="w-full bg-gothic-charcoal/50 border border-gothic-dark-gray rounded-md px-3 py-2 pr-10 text-gothic-silver focus:outline-none focus:border-gothic-silver"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSMTPPassword(!showSMTPPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gothic-steel hover:text-gothic-silver"
+                      >
+                        {showSMTPPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </details>
             </div>
           </motion.div>
         </div>

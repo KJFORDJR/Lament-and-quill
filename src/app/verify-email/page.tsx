@@ -16,33 +16,62 @@ export default function VerifyEmailPage() {
 
   useEffect(() => {
     const handleEmailVerification = async () => {
-      // Get URL parameters
+      // Get URL parameters - Supabase sends different parameter names
       const token = searchParams.get('token');
+      const token_hash = searchParams.get('token_hash'); 
       const type = searchParams.get('type');
       const access_token = searchParams.get('access_token');
       const refresh_token = searchParams.get('refresh_token');
+      const error = searchParams.get('error');
+      const error_description = searchParams.get('error_description');
 
-      console.log('Verification parameters:', { token, type, access_token, refresh_token });
+      console.log('Verification parameters:', { 
+        token, 
+        token_hash, 
+        type, 
+        access_token, 
+        refresh_token, 
+        error, 
+        error_description 
+      });
+
+      // Check for errors in URL first
+      if (error) {
+        console.error('URL contains error:', error, error_description);
+        setStatus('error');
+        setMessage(error_description || error || 'An error occurred during verification.');
+        return;
+      }
 
       // Handle different verification types
-      if (type === 'signup' || type === 'email_change') {
+      if (type === 'signup' || type === 'email_change' || type === 'email') {
         try {
           let result;
           
-          if (token) {
-            // Handle token-based verification
+          // Try token_hash first (newer Supabase format)
+          if (token_hash) {
+            result = await supabase.auth.verifyOtp({
+              token_hash,
+              type: type as any
+            });
+          } 
+          // Fall back to token (older format)
+          else if (token) {
             result = await supabase.auth.verifyOtp({
               token_hash: token,
               type: type as any
             });
-          } else if (access_token && refresh_token) {
-            // Handle session-based verification
+          } 
+          // Handle session-based verification
+          else if (access_token && refresh_token) {
             result = await supabase.auth.setSession({
               access_token,
               refresh_token
             });
-          } else {
-            throw new Error('Missing verification parameters');
+          } 
+          // No valid parameters
+          else {
+            throw new Error('Missing verification parameters. Please check your email link.');
           }
 
           console.log('Verification result:', result);
@@ -75,9 +104,51 @@ export default function VerifyEmailPage() {
           setStatus('error');
           setMessage('An unexpected error occurred during verification. Please try again.');
         }
+      } else if (!type && (access_token || token_hash || token)) {
+        // Handle case where type is missing but we have tokens
+        try {
+          let result;
+          
+          if (access_token && refresh_token) {
+            result = await supabase.auth.setSession({
+              access_token,
+              refresh_token
+            });
+          } else if (token_hash) {
+            result = await supabase.auth.verifyOtp({
+              token_hash,
+              type: 'signup'
+            });
+          } else if (token) {
+            result = await supabase.auth.verifyOtp({
+              token_hash: token,
+              type: 'signup'
+            });
+          }
+
+          if (result && !result.error) {
+            setStatus('success');
+            setMessage('Your email has been verified successfully! Welcome to the convergence.');
+            
+            if (result.data.user?.email) {
+              setUserEmail(result.data.user.email);
+            }
+            
+            setTimeout(() => {
+              router.push('/login?verified=true');
+            }, 3000);
+          } else {
+            throw new Error(result?.error?.message || 'Verification failed');
+          }
+        } catch (error) {
+          console.error('Fallback verification error:', error);
+          setStatus('error');
+          setMessage('Unable to verify email. Please try registering again or contact support.');
+        }
       } else {
+        console.log('No valid verification parameters found');
         setStatus('error');
-        setMessage('Invalid verification link. Please check your email and try again.');
+        setMessage('Invalid verification link. Please check your email and try again, or register for a new account.');
       }
     };
 

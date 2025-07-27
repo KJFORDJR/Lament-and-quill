@@ -34,10 +34,19 @@ export default function Register() {
     }
 
     try {
+      // Get the correct redirect URL with fallbacks
+      const redirectUrl = process.env.NEXT_PUBLIC_EMAIL_REDIRECT_URL ||
+        (process.env.NODE_ENV === 'production' 
+          ? 'https://lamentandquill.com/verify-email'
+          : `${window.location.origin}/verify-email`);
+
+      console.log('Registration redirect URL:', redirectUrl);
+
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
+          emailRedirectTo: redirectUrl,
           data: {
             username: formData.username,
           }
@@ -80,12 +89,8 @@ export default function Register() {
           console.error('Profile creation exception:', profileErr);
         }
 
-        setSuccess('Registration successful! Please check your email to verify your account.');
-        
-        // Redirect after a delay
-        setTimeout(() => {
-          router.push('/login');
-        }, 3000);
+        // Redirect to verification pending page instead of showing success message
+        router.push(`/email-verification-pending?email=${encodeURIComponent(formData.email)}`);
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
