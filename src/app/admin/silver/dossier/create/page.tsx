@@ -79,11 +79,13 @@ export default function CreateDossierPage() {
 
           <div className="bg-gothic-charcoal border border-gothic-silver/20 rounded-lg overflow-hidden">
             {formData.image_url && (
-              <img 
-                src={formData.image_url}
-                alt={formData.title}
-                className="w-full h-64 object-cover"
-              />
+              <div className="bg-gothic-black/50 p-4">
+                <img 
+                  src={formData.image_url}
+                  alt={formData.title}
+                  className="w-full max-h-64 object-contain mx-auto"
+                />
+              </div>
             )}
             <div className="p-8">
               <div className="flex items-center justify-between mb-4">
@@ -219,11 +221,11 @@ export default function CreateDossierPage() {
               placeholder="https://example.com/image.jpg"
             />
             {formData.image_url && (
-              <div className="mt-3">
+              <div className="mt-3 bg-gothic-black/50 p-4 rounded border border-gothic-silver/30">
                 <img 
                   src={formData.image_url}
                   alt="Preview"
-                  className="max-w-full h-48 object-cover rounded border border-gothic-silver/30"
+                  className="w-full max-h-48 object-contain mx-auto"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}

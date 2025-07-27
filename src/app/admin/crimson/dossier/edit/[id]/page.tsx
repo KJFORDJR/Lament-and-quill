@@ -304,11 +304,11 @@ export default function EditDossierPage() {
                 <h3 className="text-xl font-bold text-red-500 mb-4">Preview</h3>
                 
                 {formData.image_url && (
-                  <div className="mb-4">
+                  <div className="mb-4 bg-gothic-black/50 rounded-md p-2">
                     <img
                       src={formData.image_url}
                       alt={formData.title}
-                      className="w-full h-32 object-cover rounded-md"
+                      className="w-full max-h-48 object-contain rounded-md"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                       }}
