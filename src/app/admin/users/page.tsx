@@ -17,11 +17,15 @@ import {
   Calendar,
   MapPin,
   Phone,
-  ChevronDown
+  ChevronDown,
+  Ban,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPhoneNumber } from '@/utils/phoneUtils';
+import { BanUserModal } from '@/components/BanUserModal';
 
 interface User {
   id: string;
@@ -37,6 +41,11 @@ interface User {
   created_at: string;
   updated_at: string;
   shipping_address?: any;
+  is_banned?: boolean;
+  banned_at?: string;
+  ban_reason?: string;
+  ban_expires_at?: string;
+  ban_type?: string;
 }
 
 export default function UserManagementPage() {
@@ -48,6 +57,8 @@ export default function UserManagementPage() {
   const [cityFilter, setCityFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+  const [banModalOpen, setBanModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -70,7 +81,14 @@ export default function UserManagementPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          is_banned,
+          banned_at,
+          ban_reason,
+          ban_expires_at,
+          ban_type
+        `)
         .order('created_at', { ascending: sortBy === 'oldest' });
 
       if (error) throw error;
@@ -124,15 +142,70 @@ export default function UserManagementPage() {
     }
   };
 
-  const banUser = async (userId: string) => {
-    if (confirm('Are you sure you want to ban this user?')) {
-      await updateUserRole(userId, 'banned');
+  const banUser = async (user: User) => {
+    setSelectedUser(user);
+    setBanModalOpen(true);
+  };
+
+  const handleBanConfirm = async (banData: any) => {
+    if (!selectedUser || !user) return;
+
+    try {
+      const response = await fetch('/api/admin/users/ban', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUser.id,
+          bannedBy: user.id,
+          ...banData
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to ban user');
+      }
+
+      // Refresh users list
+      await fetchUsers();
+      alert(`User ${selectedUser.username} has been banned successfully`);
+    } catch (error) {
+      console.error('Error banning user:', error);
+      alert('Failed to ban user');
+    } finally {
+      setSelectedUser(null);
     }
   };
 
   const unbanUser = async (userId: string) => {
+    if (!user) return;
+    
     if (confirm('Are you sure you want to unban this user?')) {
-      await updateUserRole(userId, 'user');
+      try {
+        const response = await fetch('/api/admin/users/ban', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId,
+            unbannedBy: user.id,
+            reason: 'Manual unban by admin'
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to unban user');
+        }
+
+        // Refresh users list
+        await fetchUsers();
+        alert('User has been unbanned successfully');
+      } catch (error) {
+        console.error('Error unbanning user:', error);
+        alert('Failed to unban user');
+      }
     }
   };
 
@@ -282,13 +355,28 @@ export default function UserManagementPage() {
                   >
                     <td className="py-3 px-4">
                       <div>
-                        <div className="font-medium text-gothic-silver">
-                          {userData.display_name || userData.username}
+                        <div className="flex items-center space-x-2">
+                          <div className="font-medium text-gothic-silver">
+                            {userData.display_name || userData.username}
+                          </div>
+                          {userData.is_banned && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
+                              <Ban size={10} className="mr-1" />
+                              {userData.ban_type === 'temporary' ? 'Temp Ban' : 
+                               userData.ban_type === 'shadowban' ? 'Shadow Ban' : 'Banned'}
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gothic-steel">@{userData.username}</div>
                         {(userData.first_name || userData.last_name) && (
                           <div className="text-xs text-gothic-steel/70">
                             {userData.first_name} {userData.last_name}
+                          </div>
+                        )}
+                        {userData.is_banned && userData.ban_expires_at && (
+                          <div className="text-xs text-red-400 flex items-center mt-1">
+                            <Clock size={10} className="mr-1" />
+                            Expires: {new Date(userData.ban_expires_at).toLocaleDateString()}
                           </div>
                         )}
                       </div>
@@ -343,12 +431,12 @@ export default function UserManagementPage() {
                         {dropdownOpen === userData.id && (
                           <div className="absolute right-0 mt-2 w-48 bg-gothic-charcoal border border-gothic-dark-gray rounded-md shadow-lg z-10">
                             <div className="py-1">
-                              {userData.user_role !== 'banned' ? (
+                              {userData.user_role !== 'banned' && !userData.is_banned ? (
                                 <button
-                                  onClick={() => banUser(userData.id)}
+                                  onClick={() => banUser(userData)}
                                   className="flex items-center w-full px-4 py-2 text-sm text-red-400 hover:bg-gothic-dark-gray transition-colors"
                                 >
-                                  <UserX size={16} className="mr-2" />
+                                  <Ban size={16} className="mr-2" />
                                   Ban User
                                 </button>
                               ) : (
@@ -395,7 +483,7 @@ export default function UserManagementPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4"
+          className="mt-8 grid grid-cols-1 md:grid-cols-5 gap-4"
         >
           <div className="gothic-container p-4 text-center">
             <div className="text-2xl font-bold text-gothic-silver mb-2">
@@ -408,6 +496,15 @@ export default function UserManagementPage() {
               {users.filter(u => u.user_role === 'moderator').length}
             </div>
             <div className="text-sm text-yellow-400">Moderators</div>
+          </div>
+          <div className="gothic-container p-4 text-center border border-red-500/30">
+            <div className="text-2xl font-bold text-red-400 mb-2">
+              {users.filter(u => u.is_banned).length}
+            </div>
+            <div className="text-sm text-red-400 flex items-center justify-center">
+              <Ban size={14} className="mr-1" />
+              Banned Users
+            </div>
           </div>
           <div className="gothic-container p-4 text-center">
             <div className="text-2xl font-bold text-gothic-silver mb-2">
@@ -423,6 +520,23 @@ export default function UserManagementPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* Ban User Modal */}
+      {selectedUser && (
+        <BanUserModal
+          isOpen={banModalOpen}
+          onClose={() => {
+            setBanModalOpen(false);
+            setSelectedUser(null);
+          }}
+          onConfirm={handleBanConfirm}
+          user={{
+            id: selectedUser.id,
+            username: selectedUser.username,
+            email: selectedUser.email || 'N/A'
+          }}
+        />
+      )}
     </div>
   );
 }
