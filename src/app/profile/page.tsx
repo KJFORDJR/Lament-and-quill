@@ -682,11 +682,7 @@ export default function ProfilePage() {
           <h2 className="text-xl font-gothic font-bold text-gothic-silver mb-4">
             Account Information
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-gothic-steel">User ID</p>
-              <p className="text-gothic-silver font-mono text-xs">{profile.id}</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-gothic-steel">Member Since</p>
               <p className="text-gothic-silver">{new Date(profile.created_at).toLocaleDateString()}</p>
