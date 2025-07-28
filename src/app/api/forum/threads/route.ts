@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });
     }
 
-    // Query with profile information joined
+    // Query with profile and category information joined
     let query = supabaseAdmin
       .from('forum_threads')
       .select(`
@@ -27,6 +27,11 @@ export async function GET(request: Request) {
           username,
           city_affiliation,
           user_role
+        ),
+        forum_categories!category_id (
+          id,
+          name,
+          color
         )
       `)
       .eq('is_deleted', false)
@@ -35,7 +40,27 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1);
 
     if (category && category !== 'all') {
-      query = query.eq('category', category);
+      // Map category slug to full name
+      const categoryMap: Record<string, string> = {
+        'crimson': 'Crimson Chronicles',
+        'silver': 'Silver Transmissions', 
+        'convergence': 'The Convergence',
+        'mysteries': 'Unsolved Mysteries',
+        'general': 'General Discussion'
+      };
+      
+      if (categoryMap[category]) {
+        // Get category ID first
+        const { data: categoryData } = await supabaseAdmin
+          .from('forum_categories')
+          .select('id')
+          .eq('name', categoryMap[category])
+          .single();
+          
+        if (categoryData) {
+          query = query.eq('category_id', categoryData.id);
+        }
+      }
     }
 
     console.log('Executing threads query...');
@@ -55,7 +80,26 @@ export async function GET(request: Request) {
       .eq('is_deleted', false);
 
     if (category && category !== 'all') {
-      countQuery = countQuery.eq('category', category);
+      // Use the same category mapping for count
+      const categoryMap: Record<string, string> = {
+        'crimson': 'Crimson Chronicles',
+        'silver': 'Silver Transmissions', 
+        'convergence': 'The Convergence',
+        'mysteries': 'Unsolved Mysteries',
+        'general': 'General Discussion'
+      };
+      
+      if (categoryMap[category]) {
+        const { data: categoryData } = await supabaseAdmin
+          .from('forum_categories')
+          .select('id')
+          .eq('name', categoryMap[category])
+          .single();
+          
+        if (categoryData) {
+          countQuery = countQuery.eq('category_id', categoryData.id);
+        }
+      }
     }
 
     const { count } = await countQuery;
@@ -93,10 +137,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Validate category
-    const validCategories = ['general', 'crimson', 'silver', 'convergence', 'mysteries'];
-    if (!validCategories.includes(category)) {
+    // Validate category and get category_id
+    const categoryMap: Record<string, string> = {
+      'crimson': 'Crimson Chronicles',
+      'silver': 'Silver Transmissions', 
+      'convergence': 'The Convergence',
+      'mysteries': 'Unsolved Mysteries',
+      'general': 'General Discussion'
+    };
+
+    if (!categoryMap[category]) {
       return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
+    }
+
+    // Get the category_id from the database
+    const { data: categoryData, error: categoryError } = await supabaseAdmin
+      .from('forum_categories')
+      .select('id')
+      .eq('name', categoryMap[category])
+      .single();
+
+    if (categoryError || !categoryData) {
+      console.error('Error finding category:', categoryError);
+      return NextResponse.json({ error: 'Category not found' }, { status: 400 });
     }
 
     const { data: thread, error } = await supabaseAdmin
@@ -104,7 +167,7 @@ export async function POST(request: Request) {
       .insert({
         title: title.trim(),
         content: content.trim(),
-        category,
+        category_id: categoryData.id,
         author_id,
         last_activity_at: new Date().toISOString()
       })

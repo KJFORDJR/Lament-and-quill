@@ -431,11 +431,11 @@ export default function ForumPage() {
             className="bg-gothic-dark-gray border border-gothic-dark-gray rounded px-4 py-2 text-white focus:outline-none focus:border-gothic-silver"
           >
             <option value="all">All Categories</option>
-            <option value="general">General</option>
-            <option value="crimson_affairs">Crimson Affairs</option>
-            <option value="silver_matters">Silver Matters</option>
-            <option value="inter_city">Inter-City</option>
-            <option value="announcements">Announcements</option>
+            <option value="crimson">Crimson Chronicles</option>
+            <option value="silver">Silver Transmissions</option>
+            <option value="convergence">The Convergence</option>
+            <option value="mysteries">Unsolved Mysteries</option>
+            <option value="general">General Discussion</option>
           </select>
 
           {/* Create Thread Button */}

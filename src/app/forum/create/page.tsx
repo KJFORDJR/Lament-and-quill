@@ -258,10 +258,10 @@ export default function CreateThreadPage() {
                   className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-gothic-silver transition-colors"
                 >
                   <option value="general">General Discussion</option>
-                  <option value="crimson_affairs">Crimson City Affairs</option>
-                  <option value="silver_matters">Silver City Matters</option>
-                  <option value="inter_city">Inter-City Relations</option>
-                  <option value="announcements">Announcements</option>
+                  <option value="crimson">Crimson Chronicles</option>
+                  <option value="silver">Silver Transmissions</option>
+                  <option value="convergence">The Convergence</option>
+                  <option value="mysteries">Unsolved Mysteries</option>
                 </select>
                 <p className="text-gothic-steel text-sm mt-2">
                   Choose the most appropriate category for your discussion
