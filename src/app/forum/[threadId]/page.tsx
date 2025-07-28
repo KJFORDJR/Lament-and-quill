@@ -67,6 +67,7 @@ export default function ThreadPage() {
   const [editingReply, setEditingReply] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
+  const [editCategory, setEditCategory] = useState('');
 
   // Fetch user profile
   useEffect(() => {
@@ -182,6 +183,17 @@ export default function ThreadPage() {
   }, [threadId, user, router]);
 
   // Helper functions
+  const getCategorySlug = (categoryName: string) => {
+    const categoryMap: Record<string, string> = {
+      'Crimson Chronicles': 'crimson',
+      'Silver Transmissions': 'silver', 
+      'The Convergence': 'convergence',
+      'Unsolved Mysteries': 'mysteries',
+      'General Discussion': 'general'
+    };
+    return categoryMap[categoryName] || 'general';
+  };
+
   const getCityColor = (cityAffiliation: string) => {
     switch (cityAffiliation?.toLowerCase()) {
       case 'crimson_city':
@@ -360,31 +372,45 @@ export default function ThreadPage() {
     setEditingThread(thread.id);
     setEditTitle(thread.title);
     setEditContent(thread.content);
+    // Convert category name to slug for the dropdown
+    const categoryName = (thread as any).forum_categories?.name || thread.category;
+    setEditCategory(getCategorySlug(categoryName));
   };
 
   const saveThreadEdit = async () => {
     if (!thread || !editTitle.trim() || !editContent.trim()) return;
 
     try {
-      const { error } = await supabase
-        .from('forum_threads')
-        .update({
+      const response = await fetch(`/api/forum/threads/${thread.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           title: editTitle.trim(),
-          content: editContent.trim()
-        })
-        .eq('id', thread.id);
+          content: editContent.trim(),
+          category: editCategory,
+          author_id: user?.id
+        }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Failed to update thread');
+      }
 
+      const updatedThread = await response.json();
+      
       setThread({
         ...thread,
         title: editTitle.trim(),
-        content: editContent.trim()
+        content: editContent.trim(),
+        category: editCategory
       });
       
       setEditingThread(null);
       setEditTitle('');
       setEditContent('');
+      setEditCategory('');
     } catch (error) {
       console.error('Error updating thread:', error);
     }
@@ -394,6 +420,7 @@ export default function ThreadPage() {
     setEditingThread(null);
     setEditTitle('');
     setEditContent('');
+    setEditCategory('');
   };
 
   // Reply edit functionality
@@ -554,17 +581,32 @@ export default function ThreadPage() {
           {/* Thread Header */}
           <div className="p-6 border-b border-gothic-dark-gray">
             <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-2 flex-1">
+              <div className="flex flex-col gap-2 flex-1">
                 {thread.is_pinned && <Pin size={20} className="text-yellow-400" />}
                 {editingThread === thread.id ? (
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="text-2xl font-gothic text-gothic-silver bg-gothic-dark-gray border border-gothic-dark-gray rounded px-2 py-1 focus:outline-none focus:border-gothic-silver flex-1"
-                  />
+                  <>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="text-2xl font-gothic text-gothic-silver bg-gothic-dark-gray border border-gothic-dark-gray rounded px-2 py-1 focus:outline-none focus:border-gothic-silver"
+                    />
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      className="bg-gothic-dark-gray border border-gothic-dark-gray rounded px-2 py-1 text-gothic-silver focus:outline-none focus:border-gothic-silver text-sm"
+                    >
+                      <option value="general">General Discussion</option>
+                      <option value="crimson">Crimson Chronicles</option>
+                      <option value="silver">Silver Transmissions</option>
+                      <option value="convergence">The Convergence</option>
+                      <option value="mysteries">Unsolved Mysteries</option>
+                    </select>
+                  </>
                 ) : (
-                  <h1 className="text-2xl font-gothic text-gothic-silver">{thread.title}</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-gothic text-gothic-silver">{thread.title}</h1>
+                  </div>
                 )}
               </div>
               
@@ -638,7 +680,7 @@ export default function ThreadPage() {
               </span>
               <span>•</span>
               <span className={`px-2 py-1 rounded text-xs ${getCityBadge(thread.profiles?.city_affiliation || 'general')}`}>
-                {thread.category}
+                {(thread as any).forum_categories?.name || thread.category}
               </span>
               <span>•</span>
               <span>{formatTimeAgo(thread.created_at)}</span>

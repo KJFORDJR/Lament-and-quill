@@ -28,7 +28,7 @@ export async function GET(
       })
       .eq('id', threadId);
 
-    // Get thread with author info
+    // Get thread with author and category info
     const { data: thread, error: threadError } = await supabaseAdmin
       .from('forum_threads')
       .select(`
@@ -39,6 +39,11 @@ export async function GET(
           city_affiliation,
           user_role,
           created_at
+        ),
+        forum_categories:category_id (
+          id,
+          name,
+          color
         )
       `)
       .eq('id', threadId)
@@ -147,7 +152,7 @@ export async function PUT(
   try {
     const threadId = params.id;
     const body = await request.json();
-    const { title, content, author_id } = body;
+    const { title, content, category, author_id } = body;
 
     if (!supabaseAdmin) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });
@@ -183,14 +188,44 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // Prepare update data
+    let updateData: any = {
+      title: title.trim(),
+      content: content.trim(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Handle category update if provided
+    if (category) {
+      const categoryMap: Record<string, string> = {
+        'crimson': 'Crimson Chronicles',
+        'silver': 'Silver Transmissions', 
+        'convergence': 'The Convergence',
+        'mysteries': 'Unsolved Mysteries',
+        'general': 'General Discussion'
+      };
+
+      if (categoryMap[category]) {
+        // Get the category_id from the database
+        const { data: categoryData, error: categoryError } = await supabaseAdmin
+          .from('forum_categories')
+          .select('id')
+          .eq('name', categoryMap[category])
+          .single();
+
+        if (categoryError || !categoryData) {
+          console.error('Error finding category:', categoryError);
+          return NextResponse.json({ error: 'Category not found' }, { status: 400 });
+        }
+
+        updateData.category_id = categoryData.id;
+      }
+    }
+
     // Update the thread
     const { data: updatedThread, error } = await supabaseAdmin
       .from('forum_threads')
-      .update({ 
-        title: title.trim(),
-        content: content.trim(),
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', threadId)
       .select(`
         *,
