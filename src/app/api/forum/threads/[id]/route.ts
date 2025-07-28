@@ -158,7 +158,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });
     }
 
+   
+   
+
     if (!title?.trim() || !content?.trim()) {
+    
       return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
     }
 
@@ -196,22 +200,35 @@ export async function PUT(
     };
 
     // Handle category update if provided
-    if (category) {
-      const categoryMap: Record<string, string> = {
-        'crimson': 'Crimson Chronicles',
-        'silver': 'Silver Transmissions', 
-        'convergence': 'The Convergence',
-        'mysteries': 'Unsolved Mysteries',
-        'general': 'General Discussion'
-      };
+    if (category !== undefined) {
+      console.log('Category update requested:', category);
+      
+      if (category === null || category === '') {
+        console.log('Setting category_id to null');
+        updateData.category_id = null;
+      } else {
+        console.log('Looking up category by slug:', category);
+        
+        // Convert slug to category name
+        const categoryMap: Record<string, string> = {
+          'crimson': 'Crimson Chronicles',
+          'silver': 'Silver Transmissions', 
+          'convergence': 'The Convergence',
+          'mysteries': 'Unsolved Mysteries',
+          'general': 'General Discussion'
+        };
 
-      if (categoryMap[category]) {
-        // Get the category_id from the database
+        const categoryName = categoryMap[category] || category; // fallback to original value if not a known slug
+        console.log('Converted slug to category name:', categoryName);
+        
+        // Get the category_id from the database using the category name
         const { data: categoryData, error: categoryError } = await supabaseAdmin
           .from('forum_categories')
           .select('id')
-          .eq('name', categoryMap[category])
+          .eq('name', categoryName)
           .single();
+
+        console.log('Category lookup result:', { categoryData, categoryError });
 
         if (categoryError || !categoryData) {
           console.error('Error finding category:', categoryError);
@@ -219,8 +236,11 @@ export async function PUT(
         }
 
         updateData.category_id = categoryData.id;
+        console.log('Setting category_id to:', categoryData.id);
       }
     }
+
+    console.log('Final update data:', updateData);
 
     // Update the thread
     const { data: updatedThread, error } = await supabaseAdmin
@@ -238,6 +258,8 @@ export async function PUT(
         )
       `)
       .single();
+
+    console.log('Update result:', { updatedThread, error });
 
     if (error) {
       console.error('Error updating thread:', error);
