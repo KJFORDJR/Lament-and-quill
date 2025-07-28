@@ -115,11 +115,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth event:', event, 'Session exists:', !!session);
-        
         // Handle specific auth events
         if (event === 'SIGNED_OUT') {
-          console.log('User signed out - clearing all state');
           setSession(null);
           setUser(null);
           setProfile(null);
@@ -128,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         if (event === 'TOKEN_REFRESHED') {
-          console.log('Token refreshed successfully');
+          // Token refresh handled silently
         }
 
         // Only update state if we have a valid session or explicitly no session
@@ -153,8 +150,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      console.log('Starting logout process...');
-      
       // Clear local state immediately to prevent UI flicker
       setUser(null);
       setSession(null);
@@ -162,8 +157,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Sign out from Supabase
       await supabase.auth.signOut();
-      
-      console.log('Logout successful, redirecting to home...');
       
       // Force a page refresh to ensure all state is cleared
       // and redirect to home page

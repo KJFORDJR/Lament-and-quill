@@ -156,23 +156,10 @@ export default function ForumPage() {
   const fetchStats = async () => {
     try {
       // Use the dedicated forum stats API that properly calculates online users
-      console.log('🔍 Fetching forum stats from API...');
       const response = await fetch('/api/forum/stats');
       const data = await response.json();
       
-      console.log('📊 Forum stats API response:', { 
-        status: response.status, 
-        ok: response.ok, 
-        data 
-      });
-      
       if (response.ok && data.activeThreads !== undefined) {
-        console.log('✅ Using API stats:', {
-          totalThreads: data.activeThreads,
-          totalReplies: data.totalReplies,
-          onlineUsers: data.onlineUsers
-        });
-        
         setStats({
           totalThreads: data.activeThreads || 0,
           totalReplies: data.totalReplies || 0,
