@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Eye, BookOpen, MessageCircle, Users, ShoppingBag, Map } from 'lucide-react';
 import AnnouncementsSection from '@/components/AnnouncementsSection';
@@ -70,14 +71,49 @@ export default function Home() {
           transition={{ duration: 1 }}
           className="relative z-10 text-center max-w-4xl mx-auto px-4"
         >
-          <motion.h1 
-            className="text-6xl md:text-8xl font-gothic font-bold text-gothic-silver glow-text mb-8"
+          <motion.div 
+            className="flex items-center justify-center gap-6 mb-8"
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
             transition={{ duration: 1.2, ease: "easeOut" }}
           >
-            Lament and Quill
-          </motion.h1>
+            <motion.div
+              className="relative"
+              initial={{ rotate: -10, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              transition={{ delay: 0.3, duration: 1 }}
+            >
+              <Image
+                src="/LandQsymbol.jpg"
+                alt="Lament and Quill Symbol"
+                width={96}
+                height={96}
+                className="w-16 h-16 md:w-24 md:h-24 object-contain rounded-lg border-2 border-gothic-silver/30 hover:border-gothic-silver/60 transition-all duration-300"
+              />
+            </motion.div>
+            <motion.h1 
+              className="text-6xl md:text-8xl font-gothic font-bold text-gothic-silver glow-text"
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 1.2, ease: "easeOut" }}
+            >
+              Lament and Quill
+            </motion.h1>
+            <motion.div
+              className="relative"
+              initial={{ rotate: 10, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              transition={{ delay: 0.5, duration: 1 }}
+            >
+              <Image
+                src="/Main Symbol.jpg"
+                alt="Main Symbol"
+                width={96}
+                height={96}
+                className="w-16 h-16 md:w-24 md:h-24 object-contain rounded-lg border-2 border-gothic-crimson/30 hover:border-gothic-crimson/60 transition-all duration-300"
+              />
+            </motion.div>
+          </motion.div>
           
           <motion.p 
             className="text-2xl md:text-3xl font-noir italic text-gothic-crimson mb-12"
