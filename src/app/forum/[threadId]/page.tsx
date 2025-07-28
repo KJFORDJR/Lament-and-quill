@@ -55,7 +55,17 @@ export default function ThreadPage() {
   const params = useParams();
   const router = useRouter();
   const threadId = params.threadId as string;
-  const { user } = useUser();
+  const { user, loading: userLoading } = useUser();
+
+  // Debug: Log user state whenever it changes
+  useEffect(() => {
+    console.log('ThreadPage - User state changed:', { 
+      userId: user?.id, 
+      isAuthenticated: !!user,
+      userObject: user ? { id: user.id, email: user.email } : null,
+      userLoading
+    });
+  }, [user, userLoading]);
 
   const [thread, setThread] = useState<Thread | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
@@ -378,27 +388,78 @@ export default function ThreadPage() {
   };
 
   const saveThreadEdit = async () => {
-    if (!thread || !editTitle.trim() || !editContent.trim()) return;
+    console.log('saveThreadEdit called - initial checks');
+    
+    if (!thread || !editTitle.trim() || !editContent.trim()) {
+      console.log('saveThreadEdit - Missing thread or empty title/content');
+      return;
+    }
+
+    // Check if user authentication is still loading
+    if (userLoading) {
+      console.log('saveThreadEdit - User authentication still loading, please wait');
+      alert('Please wait for authentication to complete');
+      return;
+    }
+
+    // Debug: Check user authentication state
+    console.log('saveThreadEdit - User state:', { 
+      user: user?.id, 
+      isAuthenticated: !!user,
+      userFull: user ? { id: user.id, email: user.email } : 'NO USER OBJECT',
+      userLoading
+    });
+    console.log('saveThreadEdit - Thread state:', { threadId: thread.id, threadIdType: typeof thread.id });
+    
+    if (!user) {
+      console.error('saveThreadEdit - User object is null/undefined');
+      alert('Authentication required. Please refresh the page and try again.');
+      return;
+    }
+    
+    if (!user.id) {
+      console.error('saveThreadEdit - User ID is missing from user object:', user);
+      alert('User ID is missing. Please refresh the page and try again.');
+      return;
+    }
+
+    if (!thread.id) {
+      console.error('saveThreadEdit - Thread ID is missing or invalid');
+      alert('Thread ID is missing');
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/forum/threads/${thread.id}`, {
+      const requestBody = {
+        title: editTitle.trim(),
+        content: editContent.trim(),
+        category: editCategory,
+        author_id: user.id
+      };
+      
+      const apiUrl = `/api/forum/threads/${thread.id}`;
+      console.log('saveThreadEdit - About to make request');
+      console.log('saveThreadEdit - API URL:', apiUrl);
+      console.log('saveThreadEdit - Request body:', requestBody);
+
+      const response = await fetch(apiUrl, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          title: editTitle.trim(),
-          content: editContent.trim(),
-          category: editCategory,
-          author_id: user?.id
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('saveThreadEdit - Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Failed to update thread');
+        const errorText = await response.text();
+        console.error('saveThreadEdit - API Error:', errorText);
+        throw new Error(`Failed to update thread: ${response.status} - ${errorText}`);
       }
 
       const updatedThread = await response.json();
+      console.log('saveThreadEdit - Success:', updatedThread);
       
       setThread({
         ...thread,
