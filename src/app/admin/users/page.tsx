@@ -81,19 +81,12 @@ export default function UserManagementPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          is_banned,
-          banned_at,
-          ban_reason,
-          ban_expires_at,
-          ban_type
-        `)
+        .select('*')
         .order('created_at', { ascending: sortBy === 'oldest' });
 
       if (error) throw error;
 
-      // Email is now stored directly in profiles table
+      console.log('Fetched users:', data); // Debug log
       setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
