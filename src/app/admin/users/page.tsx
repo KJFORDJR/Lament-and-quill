@@ -93,25 +93,8 @@ export default function UserManagementPage() {
 
       if (error) throw error;
 
-      // Get emails from auth.users for each profile
-      const usersWithEmails = await Promise.all(
-        (data || []).map(async (profile) => {
-          try {
-            const { data: authData } = await supabase.auth.admin.getUserById(profile.id);
-            return {
-              ...profile,
-              email: authData.user?.email || 'N/A'
-            };
-          } catch {
-            return {
-              ...profile,
-              email: 'N/A'
-            };
-          }
-        })
-      );
-
-      setUsers(usersWithEmails);
+      // Email is now stored directly in profiles table
+      setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
@@ -385,7 +368,7 @@ export default function UserManagementPage() {
                       <div className="space-y-1">
                         <div className="flex items-center text-sm text-gothic-steel">
                           <Mail size={12} className="mr-2" />
-                          {userData.email}
+                          {userData.email || 'N/A'}
                         </div>
                         {userData.phone_number && (
                           <div className="flex items-center text-sm text-gothic-steel">
