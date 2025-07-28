@@ -156,16 +156,30 @@ export default function ForumPage() {
   const fetchStats = async () => {
     try {
       // Use the dedicated forum stats API that properly calculates online users
+      console.log('🔍 Fetching forum stats from API...');
       const response = await fetch('/api/forum/stats');
       const data = await response.json();
       
+      console.log('📊 Forum stats API response:', { 
+        status: response.status, 
+        ok: response.ok, 
+        data 
+      });
+      
       if (response.ok && data.activeThreads !== undefined) {
+        console.log('✅ Using API stats:', {
+          totalThreads: data.activeThreads,
+          totalReplies: data.totalReplies,
+          onlineUsers: data.onlineUsers
+        });
+        
         setStats({
           totalThreads: data.activeThreads || 0,
-          totalReplies: data.dailyPosts || 0,
+          totalReplies: data.totalReplies || 0,
           onlineUsers: data.onlineUsers || 0
         });
       } else {
+        console.log('⚠️ API failed, using fallback queries...');
         // Fallback to individual queries if API fails
         const [threadsCount, repliesCount] = await Promise.all([
           supabase
@@ -178,6 +192,12 @@ export default function ForumPage() {
             .eq('is_deleted', false)
         ]);
 
+        console.log('📊 Fallback stats:', {
+          totalThreads: threadsCount.count,
+          totalReplies: repliesCount.count,
+          onlineUsers: 0
+        });
+
         setStats({
           totalThreads: threadsCount.count || 0,
           totalReplies: repliesCount.count || 0,
@@ -185,9 +205,10 @@ export default function ForumPage() {
         });
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('❌ Error fetching stats:', error);
       // Fallback to basic counts
       try {
+        console.log('🔄 Attempting final fallback...');
         const [threadsCount, repliesCount] = await Promise.all([
           supabase
             .from('forum_threads')
@@ -199,13 +220,19 @@ export default function ForumPage() {
             .eq('is_deleted', false)
         ]);
 
+        console.log('📊 Final fallback stats:', {
+          totalThreads: threadsCount.count,
+          totalReplies: repliesCount.count,
+          onlineUsers: 0
+        });
+
         setStats({
           totalThreads: threadsCount.count || 0,
           totalReplies: repliesCount.count || 0,
           onlineUsers: 0
         });
       } catch (fallbackError) {
-        console.error('Error in fallback stats fetch:', fallbackError);
+        console.error('❌ Error in fallback stats fetch:', fallbackError);
       }
     }
   };
@@ -361,7 +388,7 @@ export default function ForumPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-2xl font-gothic text-gothic-silver">{stats.totalReplies}</h3>
-                <p className="text-gothic-steel">Today&apos;s Posts</p>
+                <p className="text-gothic-steel">Total Replies</p>
               </div>
               <ThumbsUp size={32} className="text-gothic-silver" />
             </div>

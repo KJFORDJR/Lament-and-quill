@@ -11,6 +11,19 @@ import AdSenseScript from '../components/AdSenseScript'
 export const metadata: Metadata = {
   title: 'Lament and Quill - Two cities. Two Ghosts. One reckoning.',
   description: 'A Dark Neo-Gothic Tech Noir experience featuring the tales of two cities bound by fate.',
+  icons: {
+    icon: [
+      {
+        url: '/favicon.ico',
+        sizes: '32x32',
+        type: 'image/x-icon',
+      },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
+  viewport: 'width=device-width, initial-scale=1',
+  themeColor: '#000000',
 }
 
 export default function RootLayout({

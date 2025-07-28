@@ -38,6 +38,12 @@ export async function GET() {
 
     const dailyPosts = (todayThreads || 0) + (todayReplies || 0);
 
+    // Get total replies count
+    const { count: totalReplies } = await supabaseAdmin
+      .from('forum_replies')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_deleted', false);
+
     // Get online users count (users active in last 15 minutes)
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
     
@@ -68,6 +74,7 @@ export async function GET() {
       activeThreads: activeThreads || 0,
       registeredUsers: registeredUsers || 0,
       dailyPosts,
+      totalReplies: totalReplies || 0,
       onlineUsers: onlineUsers || 0,
       recentActivity: recentThreads || []
     });
