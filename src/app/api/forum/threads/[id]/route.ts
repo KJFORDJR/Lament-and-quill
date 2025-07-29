@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// Updated: Added debug logging for thread updates
 // GET specific thread with all replies
 export async function GET(
   request: Request,
@@ -73,7 +72,6 @@ export async function GET(
       .order('created_at', { ascending: true });
 
     if (repliesError) {
-      console.error('Error fetching replies:', repliesError);
       return NextResponse.json({ error: 'Failed to fetch replies' }, { status: 500 });
     }
 
@@ -82,7 +80,6 @@ export async function GET(
       replies: replies || []
     });
   } catch (err) {
-    console.error('Unexpected error fetching thread:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -134,13 +131,11 @@ export async function DELETE(
       .eq('id', threadId);
 
     if (error) {
-      console.error('Error deleting thread:', error);
       return NextResponse.json({ error: 'Failed to delete thread' }, { status: 500 });
     }
 
     return NextResponse.json({ message: 'Thread deleted successfully' });
   } catch (err) {
-    console.error('Unexpected error deleting thread:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -193,14 +188,12 @@ export async function PUT(
       .single();
 
     if (updateError) {
-      console.error('Error updating thread:', updateError);
       return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
     }
 
     return NextResponse.json(updatedThread);
 
   } catch (err) {
-    console.error('Unexpected error updating thread:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
