@@ -7,6 +7,7 @@ import { ModalProvider } from '@/contexts/ModalContext'
 import { MaintenanceWrapper } from '@/components/MaintenanceWrapper'
 import { SessionWarning } from '@/components/SessionWarning'
 import AdSenseScript from '../components/AdSenseScript'
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
   title: 'Lament and Quill - Two cities. Two Ghosts. One reckoning.',
@@ -50,6 +51,7 @@ export default function RootLayout({
             </MaintenanceWrapper>
           </ModalProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   )
