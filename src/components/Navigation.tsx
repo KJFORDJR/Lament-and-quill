@@ -13,9 +13,7 @@ export function Navigation() {
     { name: 'L&Q', href: '/', theme: 'logo' },
     { name: 'Dossier', href: '/dossier', theme: 'dossier' },
     { name: 'Crimson Ledger', href: '/crimson-ledger', theme: 'crimson' },
-    { name: 'Crimson Confessions', href: '/crimson-confessions', theme: 'crimson' },
     { name: 'Fragments of Lament', href: '/fragments-of-lament', theme: 'green' },
-    { name: 'Lament Submissions', href: '/lament-submissions', theme: 'green' },
     { name: 'The Ledger and the Lament', href: '/forum' },
     { name: 'Black Ledger Goods', href: '/merchandise' }
   ];

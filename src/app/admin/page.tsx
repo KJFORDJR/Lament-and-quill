@@ -15,8 +15,6 @@ interface SystemStatus {
   metrics: {
     forumThreads: number;
     forumReplies: number;
-    crimsonConfessions: number;
-    lamentSubmissions: number;
     orders: number;
   };
   lastUpdated: string;
@@ -59,7 +57,7 @@ export default function AdminDashboard() {
         recentActiveUsers: 0,
         neuralConnections: 0,
         uptimePercentage: 0,
-        metrics: { forumThreads: 0, forumReplies: 0, crimsonConfessions: 0, lamentSubmissions: 0, orders: 0 },
+        metrics: { forumThreads: 0, forumReplies: 0, orders: 0 },
         lastUpdated: new Date().toISOString()
       });
     } finally {
@@ -80,7 +78,7 @@ export default function AdminDashboard() {
       href: '/admin/crimson',
       theme: 'crimson',
       icon: Crown,
-      features: ['Crimson Ledger Management', 'Confession Moderation', 'Blood Market Analytics', 'User Permissions']
+      features: ['Crimson Ledger Management', 'Blood Market Analytics', 'User Permissions', 'Chronicle Administration']
     },
     {
       title: 'Silver Heights Command',
@@ -327,8 +325,6 @@ export default function AdminDashboard() {
                   <div className="text-xs text-gothic-steel/70 mt-1">
                     Threads: {systemStatus.metrics.forumThreads} • 
                     Replies: {systemStatus.metrics.forumReplies} • 
-                    Confessions: {systemStatus.metrics.crimsonConfessions} • 
-                    Laments: {systemStatus.metrics.lamentSubmissions} • 
                     Orders: {systemStatus.metrics.orders}
                   </div>
                 </div>

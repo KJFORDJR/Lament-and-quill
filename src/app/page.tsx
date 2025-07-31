@@ -23,24 +23,10 @@ export default function Home() {
       theme: 'crimson'
     },
     {
-      icon: MessageCircle,
-      title: 'Crimson Confessions',
-      description: 'Submit your secrets and confessions. Tips elevate submissions to prominence.',
-      href: '/crimson-confessions',
-      theme: 'crimson'
-    },
-    {
       icon: Eye,
       title: 'Fragments of Lament',
       description: 'Lament city\'s official chronicles, maintained by the silver administration.',
       href: '/fragments-of-lament',
-      theme: 'silver'
-    },
-    {
-      icon: MessageCircle,
-      title: 'Lament Submissions',
-      description: 'Share your lamentations. Premium tips ensure priority placement.',
-      href: '/lament-submissions',
       theme: 'silver'
     },
     {

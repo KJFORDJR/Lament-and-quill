@@ -32,20 +32,7 @@ export default function TestDbPage() {
         data: connectionTest
       };
 
-      // Test 2: Check lament_submissions table
-      const { data: submissionsData, error: submissionsError } = await supabase
-        .from('lament_submissions')
-        .select('*')
-        .limit(5);
-      
-      results.lamentSubmissions = {
-        success: !submissionsError,
-        error: submissionsError?.message,
-        count: submissionsData?.length || 0,
-        data: submissionsData
-      };
-
-      // Test 3: Check lament_fragments_entries table
+      // Test 2: Check lament_fragments_entries table
       const { data: fragmentsData, error: fragmentsError } = await supabase
         .from('lament_fragments_entries')
         .select('*')
@@ -58,19 +45,18 @@ export default function TestDbPage() {
         data: fragmentsData
       };
 
-      // Test 4: Test insertion (if user is logged in)
+      // Test 3: Test insertion (if user is logged in)
       if (user) {
-        const testSubmission = {
-          title: `Test Submission ${Date.now()}`,
-          content: 'This is a test submission to verify database insertion works',
+        const testFragment = {
+          title: `Test Fragment ${Date.now()}`,
+          content: 'This is a test fragment to verify database insertion works',
           author_id: user.id,
-          is_anonymous: false,
-          status: 'pending'
+          status: 'published'
         };
 
         const { data: insertData, error: insertError } = await supabase
-          .from('lament_submissions')
-          .insert(testSubmission)
+          .from('lament_fragments_entries')
+          .insert(testFragment)
           .select();
 
         results.insertion = {
@@ -82,7 +68,7 @@ export default function TestDbPage() {
         // Clean up test data
         if (insertData && insertData[0]) {
           await supabase
-            .from('lament_submissions')
+            .from('lament_fragments_entries')
             .delete()
             .eq('id', insertData[0].id);
         }
@@ -122,26 +108,9 @@ export default function TestDbPage() {
           )}
         </div>
 
-        {/* Lament Submissions Test */}
-        <div className="p-4 border rounded">
-          <h2 className="text-lg font-semibold mb-2">2. Lament Submissions Table</h2>
-          <p className={results.lamentSubmissions?.success ? 'text-green-400' : 'text-red-400'}>
-            Status: {results.lamentSubmissions?.success ? 'SUCCESS' : 'FAILED'}
-          </p>
-          <p>Records found: {results.lamentSubmissions?.count || 0}</p>
-          {results.lamentSubmissions?.error && (
-            <p className="text-red-400">Error: {results.lamentSubmissions.error}</p>
-          )}
-          {results.lamentSubmissions?.data && (
-            <pre className="mt-2 p-2 bg-gray-800 text-xs overflow-x-auto">
-              {JSON.stringify(results.lamentSubmissions.data, null, 2)}
-            </pre>
-          )}
-        </div>
-
         {/* Lament Fragments Test */}
         <div className="p-4 border rounded">
-          <h2 className="text-lg font-semibold mb-2">3. Lament Fragments Table</h2>
+          <h2 className="text-lg font-semibold mb-2">2. Lament Fragments Table</h2>
           <p className={results.lamentFragments?.success ? 'text-green-400' : 'text-red-400'}>
             Status: {results.lamentFragments?.success ? 'SUCCESS' : 'FAILED'}
           </p>
