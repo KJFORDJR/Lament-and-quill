@@ -30,21 +30,6 @@ interface CrimsonLedgerEntry {
   display_order?: number;
 }
 
-interface CrimsonConfession {
-  id: string;
-  title: string;
-  content: string;
-  author_id: string;
-  status: string;
-  author_name: string;
-  tip_count: number;
-  total_tip_amount: number;
-  created_at: string;
-  is_deleted?: boolean;
-  deleted_at?: string;
-  deleted_by?: string;
-}
-
 interface Announcement {
   id: string;
   title: string;
@@ -71,7 +56,6 @@ interface DossierEntry {
 
 interface AdminStats {
   totalLedgerEntries: number;
-  totalConfessions: number;
   totalUsers: number;
   totalAnnouncements: number;
   totalDossiers: number;
@@ -82,14 +66,11 @@ export default function CrimsonAdminPanel() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
   const [ledgerEntries, setLedgerEntries] = useState<CrimsonLedgerEntry[]>([]);
-  const [confessions, setConfessions] = useState<CrimsonConfession[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dossiers, setDossiers] = useState<DossierEntry[]>([]);
-  const [showDeletedConfessions, setShowDeletedConfessions] = useState(false);
   const [isReorderingLedger, setIsReorderingLedger] = useState(false);
   const [stats, setStats] = useState<AdminStats>({
     totalLedgerEntries: 0,
-    totalConfessions: 0,
     totalUsers: 0,
     totalAnnouncements: 0,
     totalDossiers: 0
@@ -97,13 +78,11 @@ export default function CrimsonAdminPanel() {
 
   // Modal hooks
   const ledgerReadModal = useReadModal<CrimsonLedgerEntry>();
-  const confessionReadModal = useReadModal<CrimsonConfession>();
   const { ConfirmModalComponent, openConfirmModal } = useConfirmModalComponent();
 
   const loadData = useCallback(async () => {
     await Promise.all([
       loadLedgerEntries(),
-      loadConfessions(),
       loadAnnouncements(),
       loadDossiers(),
       loadStats()
@@ -113,11 +92,6 @@ export default function CrimsonAdminPanel() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // Reload confessions when toggling deleted view
-  useEffect(() => {
-    loadConfessions();
-  }, [showDeletedConfessions]);
 
   const loadLedgerEntries = async () => {
     try {
@@ -153,35 +127,6 @@ export default function CrimsonAdminPanel() {
       }
     } catch (error) {
       console.error('Error loading ledger entries:', error);
-    }
-  };
-
-  const loadConfessions = async () => {
-    try {
-      let query = supabase
-        .from('crimson_confessions')
-        .select(`
-          *,
-          profiles(username)
-        `);
-      
-      // Filter based on whether we want to show deleted confessions
-      if (!showDeletedConfessions) {
-        query = query.neq('is_deleted', true);
-      }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      const confessionsWithAuthor = data?.map(confession => ({
-        ...confession,
-        author_name: confession.profiles?.username || 'Anonymous'
-      })) || [];
-      
-      setConfessions(confessionsWithAuthor);
-    } catch (error) {
-      console.error('Error loading confessions:', error);
     }
   };
 
@@ -247,9 +192,8 @@ export default function CrimsonAdminPanel() {
 
   const loadStats = async () => {
     try {
-      const [ledgerCount, confessionsCount, usersCount, announcementsCount, dossiersCount] = await Promise.all([
+      const [ledgerCount, usersCount, announcementsCount, dossiersCount] = await Promise.all([
         supabase.from('crimson_ledger_entries').select('*', { count: 'exact', head: true }),
-        supabase.from('crimson_confessions').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('announcements').select('*', { count: 'exact', head: true }),
         supabase.from('dossier_entries').select('*', { count: 'exact', head: true })
@@ -257,7 +201,6 @@ export default function CrimsonAdminPanel() {
 
       setStats({
         totalLedgerEntries: ledgerCount.count || 0,
-        totalConfessions: confessionsCount.count || 0,
         totalUsers: usersCount.count || 0,
         totalAnnouncements: announcementsCount.count || 0,
         totalDossiers: dossiersCount.count || 0
@@ -321,87 +264,6 @@ export default function CrimsonAdminPanel() {
     ledgerReadModal.openModal(entry);
   };
 
-  const handleReadConfession = (confession: CrimsonConfession) => {
-    confessionReadModal.openModal(confession);
-  };
-
-  const handleRestoreConfession = async (confessionId: string) => {
-    try {
-      const { error } = await supabase
-        .from('crimson_confessions')
-        .update({ 
-          is_deleted: false,
-          deleted_at: null,
-          deleted_by: null,
-          status: 'pending' // Reset to pending for review
-        })
-        .eq('id', confessionId);
-
-      if (error) throw error;
-      await loadConfessions();
-      await loadStats();
-      alert('Confession restored successfully');
-    } catch (error) {
-      console.error('Error restoring confession:', error);
-      alert('Error restoring confession');
-    }
-  };
-
-  const handleDeleteConfession = async (confessionId: string) => {
-    openConfirmModal({
-      title: 'Delete Confession',
-      message: 'Are you sure you want to delete this confession? This will hide it from users but preserve the data for records.',
-      confirmText: 'Delete',
-      variant: 'danger',
-      onConfirm: async () => {
-        try {
-          console.log('Attempting to soft delete confession:', confessionId);
-          
-          // Soft delete - mark as deleted but preserve data
-          const { error } = await supabase
-            .from('crimson_confessions')
-            .update({ 
-              is_deleted: true,
-              deleted_at: new Date().toISOString(),
-              deleted_by: user?.id,
-              status: 'deleted' // Update status to reflect deletion
-            })
-            .eq('id', confessionId);
-
-          if (error) {
-            console.error('Delete error:', error);
-            throw error;
-          }
-          
-          console.log('Soft delete successful, reloading confessions...');
-          await loadConfessions();
-          await loadStats(); // Also refresh stats
-          alert('Confession deleted successfully');
-        } catch (error) {
-          console.error('Error deleting confession:', error);
-          alert(`Error deleting confession: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      }
-    });
-  };
-
-  const handleUpdateConfessionStatus = async (confessionId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('crimson_confessions')
-        .update({ status: newStatus })
-        .eq('id', confessionId);
-
-      if (error) throw error;
-      loadConfessions();
-      alert(`Confession ${newStatus} successfully`);
-    } catch (error) {
-      console.error('Error updating confession status:', error);
-      alert('Error updating confession status');
-    }
-  };
-
-  // Announcement handlers
   const handleDeleteAnnouncement = async (announcementId: string) => {
     openConfirmModal({
       title: 'Delete Announcement',
@@ -451,7 +313,7 @@ export default function CrimsonAdminPanel() {
 
   const renderOverview = () => (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -472,20 +334,6 @@ export default function CrimsonAdminPanel() {
           className="bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <MessageCircle className="h-8 w-8 text-red-500" />
-            <span className="text-3xl font-bold text-red-500">{stats.totalConfessions}</span>
-          </div>
-          <h3 className="text-lg font-semibold text-red-500 mb-2">Confessions</h3>
-          <p className="text-sm text-red-400/70">User confessions</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
-        >
-          <div className="flex items-center justify-between mb-4">
             <Users className="h-8 w-8 text-red-500" />
             <span className="text-3xl font-bold text-red-500">{stats.totalUsers}</span>
           </div>
@@ -496,7 +344,7 @@ export default function CrimsonAdminPanel() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.2 }}
           className="bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
         >
           <div className="flex items-center justify-between mb-4">
@@ -510,7 +358,7 @@ export default function CrimsonAdminPanel() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.3 }}
           className="bg-gothic-charcoal border border-red-500/20 rounded-lg p-6"
         >
           <div className="flex items-center justify-between mb-4">
@@ -520,6 +368,45 @@ export default function CrimsonAdminPanel() {
           <h3 className="text-lg font-semibold text-red-500 mb-2">Dossiers</h3>
           <p className="text-sm text-red-400/70">Investigation entries</p>
         </motion.div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[
+          {
+            title: 'Create Ledger Entry',
+            description: 'Add a new crimson ledger entry',
+            href: '/admin/crimson/create',
+            icon: Plus,
+            color: 'text-red-400'
+          },
+          {
+            title: 'Create Announcement',
+            description: 'Add a new announcement',
+            href: '/admin/crimson/announcement/create',
+            icon: Megaphone,
+            color: 'text-yellow-400'
+          },
+          {
+            title: 'Create Dossier',
+            description: 'Add a new dossier entry',
+            href: '/admin/crimson/dossier/create',
+            icon: Database,
+            color: 'text-purple-400'
+          }
+        ].map((action) => (
+          <button
+            key={action.title}
+            onClick={() => router.push(action.href)}
+            className="p-6 bg-gothic-charcoal border border-red-500/20 rounded-lg text-left hover:border-red-500/40 transition-all duration-200 hover:bg-red-500/5"
+          >
+            <div className="flex items-center space-x-3 mb-3">
+              <action.icon className={`h-6 w-6 ${action.color}`} />
+              <h3 className="text-lg font-semibold text-red-500">{action.title}</h3>
+            </div>
+            <p className="text-red-400/70 text-sm">{action.description}</p>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -629,117 +516,6 @@ export default function CrimsonAdminPanel() {
           </div>
         )}
       />
-    </div>
-  );
-
-  const renderConfessions = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-red-500">Crimson Confessions</h2>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setShowDeletedConfessions(!showDeletedConfessions)}
-            className="bg-red-500/20 hover:bg-red-500/30 text-red-400 px-3 py-1 rounded-md transition-all duration-200 text-sm"
-          >
-            {showDeletedConfessions ? 'Hide Deleted' : 'Show Deleted'}
-          </button>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full bg-gothic-charcoal border border-red-500/20 rounded-lg">
-          <thead>
-            <tr className="border-b border-red-500/20">
-              <th className="text-left p-4 text-red-500">Title</th>
-              <th className="text-left p-4 text-red-500">Author</th>
-              <th className="text-left p-4 text-red-500">Status</th>
-              <th className="text-left p-4 text-red-500">Tips</th>
-              <th className="text-left p-4 text-red-500">Total Amount</th>
-              <th className="text-left p-4 text-red-500">Submitted</th>
-              <th className="text-left p-4 text-red-500">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {confessions.map((confession) => (
-              <tr key={confession.id} className={`border-b border-red-500/10 hover:bg-red-500/5 ${
-                confession.is_deleted ? 'opacity-50 bg-red-500/10' : ''
-              }`}>
-                <td className="p-4 text-gothic-silver/90">
-                  {confession.title}
-                  {confession.is_deleted && (
-                    <span className="ml-2 text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
-                      DELETED
-                    </span>
-                  )}
-                </td>
-                <td className="p-4 text-gothic-silver/70">{confession.author_name}</td>
-                <td className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      confession.status === 'approved' 
-                        ? 'bg-green-500/20 text-green-400'
-                        : confession.status === 'rejected'
-                        ? 'bg-red-500/20 text-red-400'
-                        : confession.status === 'deleted'
-                        ? 'bg-gray-500/20 text-gray-400'
-                        : 'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {confession.status}
-                    </span>
-                    {confession.status === 'pending' && !confession.is_deleted && (
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() => handleUpdateConfessionStatus(confession.id, 'approved')}
-                          className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleUpdateConfessionStatus(confession.id, 'rejected')}
-                          className="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td className="p-4 text-gothic-silver/70">{confession.tip_count || 0}</td>
-                <td className="p-4 text-gothic-silver/70">${(confession.total_tip_amount || 0).toFixed(2)}</td>
-                <td className="p-4 text-gothic-silver/70">
-                  {new Date(confession.created_at).toLocaleDateString()}
-                </td>
-                <td className="p-4">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleReadConfession(confession)}
-                      className="text-gothic-silver/70 hover:text-gothic-silver transition-colors"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    {confession.is_deleted ? (
-                      <button
-                        onClick={() => handleRestoreConfession(confession.id)}
-                        className="text-green-400 hover:text-green-300 transition-colors"
-                        title="Restore confession"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleDeleteConfession(confession.id)}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 
@@ -883,8 +659,6 @@ export default function CrimsonAdminPanel() {
         return renderOverview();
       case 'ledger':
         return renderLedgerEntries();
-      case 'confessions':
-        return renderConfessions();
       case 'announcements':
         return renderAnnouncements();
       case 'dossiers':
@@ -911,7 +685,6 @@ export default function CrimsonAdminPanel() {
             {[
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'ledger', label: 'Ledger', icon: BookOpen },
-              { id: 'confessions', label: 'Confessions', icon: MessageCircle },
               { id: 'announcements', label: 'Announcements', icon: Megaphone },
               { id: 'dossiers', label: 'Dossiers', icon: Database }
             ].map((tab) => (
@@ -956,30 +729,6 @@ export default function CrimsonAdminPanel() {
           <div className="prose prose-red-500 max-w-none">
             {ledgerReadModal.selectedItem?.content}
           </div>
-        </div>
-      </ReadModal>
-
-      <ReadModal
-        isOpen={confessionReadModal.isOpen}
-        onClose={confessionReadModal.closeModal}
-        title={confessionReadModal.selectedItem?.title || 'Reading Confession'}
-        theme="crimson"
-        size="xl"
-        author={confessionReadModal.selectedItem?.author_name}
-        publishedAt={confessionReadModal.selectedItem?.created_at}
-      >
-        <div className="p-6">
-          <div className="prose prose-red-500 max-w-none">
-            {confessionReadModal.selectedItem?.content}
-          </div>
-          {confessionReadModal.selectedItem && (
-            <div className="mt-4 pt-4 border-t border-red-500/20">
-              <div className="flex justify-between items-center text-sm text-red-400">
-                <span>Tips: {confessionReadModal.selectedItem.tip_count || 0}</span>
-                <span>Total Amount: ${(confessionReadModal.selectedItem.total_tip_amount || 0).toFixed(2)}</span>
-              </div>
-            </div>
-          )}
         </div>
       </ReadModal>
 

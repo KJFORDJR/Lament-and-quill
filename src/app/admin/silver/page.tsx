@@ -12,7 +12,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useReadModal } from '@/hooks/useReadModal';
 import { useConfirmModalComponent } from '@/components/ModalComponents';
 import { ReadModal } from '@/components/ReadModal';
-import { DragDropTable } from '@/components/DragDropTable';
 
 interface LamentFragment {
   id: string;
@@ -172,81 +171,78 @@ export default function SilverAdminPanel() {
   };
 
   const handleDeleteFragment = async (id: string) => {
-    const confirmed = await openConfirmModal({
+    openConfirmModal({
       title: 'Delete Fragment',
       message: 'Are you sure you want to delete this fragment? This action cannot be undone.',
       confirmText: 'Delete',
-      confirmButtonVariant: 'destructive'
-    });
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('lament_fragments_entries')
+            .delete()
+            .eq('id', id);
 
-    if (confirmed) {
-      try {
-        const { error } = await supabase
-          .from('lament_fragments_entries')
-          .delete()
-          .eq('id', id);
-
-        if (error) throw error;
-        await loadFragments();
-      } catch (error) {
-        console.error('Error deleting fragment:', error);
-        alert('Error deleting fragment. Please try again.');
+          if (error) throw error;
+          await loadFragments();
+        } catch (error) {
+          console.error('Error deleting fragment:', error);
+          alert('Error deleting fragment. Please try again.');
+        }
       }
-    }
+    });
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
-    const confirmed = await openConfirmModal({
+    openConfirmModal({
       title: 'Delete Announcement',
       message: 'Are you sure you want to delete this announcement? This action cannot be undone.',
       confirmText: 'Delete',
-      confirmButtonVariant: 'destructive'
-    });
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('lament_announcements')
+            .delete()
+            .eq('id', id);
 
-    if (confirmed) {
-      try {
-        const { error } = await supabase
-          .from('lament_announcements')
-          .delete()
-          .eq('id', id);
-
-        if (error) throw error;
-        await loadAnnouncements();
-      } catch (error) {
-        console.error('Error deleting announcement:', error);
-        alert('Error deleting announcement. Please try again.');
+          if (error) throw error;
+          await loadAnnouncements();
+        } catch (error) {
+          console.error('Error deleting announcement:', error);
+          alert('Error deleting announcement. Please try again.');
+        }
       }
-    }
+    });
   };
 
   const handleDeleteDossier = async (id: string) => {
-    const confirmed = await openConfirmModal({
+    openConfirmModal({
       title: 'Delete Dossier',
       message: 'Are you sure you want to delete this dossier? This action cannot be undone.',
       confirmText: 'Delete',
-      confirmButtonVariant: 'destructive'
-    });
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('dossier_entries')
+            .delete()
+            .eq('id', id);
 
-    if (confirmed) {
-      try {
-        const { error } = await supabase
-          .from('dossier_entries')
-          .delete()
-          .eq('id', id);
-
-        if (error) throw error;
-        await loadDossiers();
-        await loadStats();
-      } catch (error) {
-        console.error('Error deleting dossier:', error);
-        alert('Error deleting dossier. Please try again.');
+          if (error) throw error;
+          await loadDossiers();
+          await loadStats();
+        } catch (error) {
+          console.error('Error deleting dossier:', error);
+          alert('Error deleting dossier. Please try again.');
+        }
       }
-    }
+    });
   };
 
-  const handleReorderFragments = async (reorderedItems: LamentFragment[]) => {
+  const handleReorderFragments = async (reorderedFragments: LamentFragment[]) => {
     try {
-      const updates = reorderedItems.map((fragment, index) => ({
+      const updates = reorderedFragments.map((fragment, index) => ({
         id: fragment.id,
         display_order: index + 1
       }));
@@ -461,16 +457,48 @@ export default function SilverAdminPanel() {
             </div>
 
             {isReorderingFragments ? (
-              <DragDropTable
-                items={fragments}
-                onReorder={handleReorderFragments}
-                renderItem={(fragment) => (
-                  <div className="flex items-center justify-between p-4">
-                    <div>
-                      <h3 className="font-semibold text-gothic-silver">{fragment.title}</h3>
-                      <p className="text-sm text-gothic-steel">by {fragment.author_name}</p>
+              <div className="space-y-4">
+                {fragments.map((fragment, index) => (
+                  <div
+                    key={fragment.id}
+                    className="flex items-center justify-between p-4 border border-gothic-steel/20 rounded-lg bg-gothic-charcoal/50"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="flex flex-col space-y-1">
+                        <button
+                          onClick={() => {
+                            if (index > 0) {
+                              const newFragments = [...fragments];
+                              [newFragments[index], newFragments[index - 1]] = [newFragments[index - 1], newFragments[index]];
+                              handleReorderFragments(newFragments);
+                            }
+                          }}
+                          disabled={index === 0}
+                          className="text-green-400 hover:text-green-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (index < fragments.length - 1) {
+                              const newFragments = [...fragments];
+                              [newFragments[index], newFragments[index + 1]] = [newFragments[index + 1], newFragments[index]];
+                              handleReorderFragments(newFragments);
+                            }
+                          }}
+                          disabled={index === fragments.length - 1}
+                          className="text-green-400 hover:text-green-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gothic-silver">{fragment.title}</h3>
+                        <p className="text-sm text-gothic-steel">by {fragment.author_name}</p>
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gothic-steel">Order: {index + 1}</span>
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         fragment.is_published 
                           ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
@@ -480,8 +508,8 @@ export default function SilverAdminPanel() {
                       </span>
                     </div>
                   </div>
-                )}
-              />
+                ))}
+              </div>
             ) : (
               <div className="space-y-4">
                 {fragments.map((fragment) => (
@@ -733,7 +761,7 @@ export default function SilverAdminPanel() {
         )}
       </ReadModal>
 
-      <ConfirmModalComponent />
+      {ConfirmModalComponent}
     </div>
   );
 }
