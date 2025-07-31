@@ -9,55 +9,124 @@
 BEGIN;
 
 -- =============================================
+-- 0. CHECK WHAT TABLES ACTUALLY EXIST
+-- =============================================
+
+-- Display what confession/lament tables currently exist
+DO $$
+DECLARE
+    table_record RECORD;
+BEGIN
+    RAISE NOTICE '=== CHECKING EXISTING TABLES ===';
+    
+    FOR table_record IN 
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND (table_name LIKE '%confession%' OR table_name LIKE '%lament%')
+        ORDER BY table_name
+    LOOP
+        RAISE NOTICE 'Found table: %', table_record.table_name;
+    END LOOP;
+    
+    RAISE NOTICE '=== END TABLE CHECK ===';
+END $$;
+
+-- =============================================
 -- 1. DROP POLICIES FIRST (to avoid dependency issues)
 -- =============================================
 
--- Drop policies for crimson_confessions
-DROP POLICY IF EXISTS "Users can create confessions" ON crimson_confessions;
-DROP POLICY IF EXISTS "Approved confessions viewable by all" ON crimson_confessions;
-DROP POLICY IF EXISTS "Users can view their own submissions" ON crimson_confessions_submissions;
-DROP POLICY IF EXISTS "Users can insert their own submissions" ON crimson_confessions_submissions;
-DROP POLICY IF EXISTS "Users can update their own pending submissions" ON crimson_confessions_submissions;
-DROP POLICY IF EXISTS "Admins can view all submissions" ON crimson_confessions_submissions;
-DROP POLICY IF EXISTS "Admins can update submission status" ON crimson_confessions_submissions;
-DROP POLICY IF EXISTS "Users can view all tips" ON crimson_confessions_tips;
-DROP POLICY IF EXISTS "Users can insert their own tips" ON crimson_confessions_tips;
-DROP POLICY IF EXISTS "Users can delete their own tips" ON crimson_confessions_tips;
+-- Drop policies for crimson_confessions (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'crimson_confessions' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "Users can create confessions" ON crimson_confessions;
+        DROP POLICY IF EXISTS "Approved confessions viewable by all" ON crimson_confessions;
+        RAISE NOTICE 'Dropped policies for crimson_confessions table';
+    ELSE
+        RAISE NOTICE 'Table crimson_confessions does not exist - skipping policies';
+    END IF;
+END $$;
+-- Drop policies for crimson_confessions_submissions (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'crimson_confessions_submissions' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "Users can view their own submissions" ON crimson_confessions_submissions;
+        DROP POLICY IF EXISTS "Users can insert their own submissions" ON crimson_confessions_submissions;
+        DROP POLICY IF EXISTS "Users can update their own pending submissions" ON crimson_confessions_submissions;
+        DROP POLICY IF EXISTS "Admins can view all submissions" ON crimson_confessions_submissions;
+        DROP POLICY IF EXISTS "Admins can update submission status" ON crimson_confessions_submissions;
+        RAISE NOTICE 'Dropped policies for crimson_confessions_submissions table';
+    ELSE
+        RAISE NOTICE 'Table crimson_confessions_submissions does not exist - skipping policies';
+    END IF;
+END $$;
 
--- Drop policies for lament_submissions
-DROP POLICY IF EXISTS "Users can create submissions" ON lament_submissions;
-DROP POLICY IF EXISTS "Approved submissions viewable by all" ON lament_submissions;
-DROP POLICY IF EXISTS "Users can view their own lament submissions" ON lament_submissions;
-DROP POLICY IF EXISTS "Users can create lament submissions" ON lament_submissions;
-DROP POLICY IF EXISTS "Users can update their own lament submissions" ON lament_submissions;
-DROP POLICY IF EXISTS "Admins can view all lament submissions" ON lament_submissions;
-DROP POLICY IF EXISTS "Admins can update all lament submissions" ON lament_submissions;
-DROP POLICY IF EXISTS "Admins can delete lament submissions" ON lament_submissions;
+-- Drop policies for crimson_confessions_tips (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'crimson_confessions_tips' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "Users can view all tips" ON crimson_confessions_tips;
+        DROP POLICY IF EXISTS "Users can insert their own tips" ON crimson_confessions_tips;
+        DROP POLICY IF EXISTS "Users can delete their own tips" ON crimson_confessions_tips;
+        RAISE NOTICE 'Dropped policies for crimson_confessions_tips table';
+    ELSE
+        RAISE NOTICE 'Table crimson_confessions_tips does not exist - skipping policies';
+    END IF;
+END $$;
+
+-- Drop policies for lament_submissions (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'lament_submissions' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "Users can create submissions" ON lament_submissions;
+        DROP POLICY IF EXISTS "Approved submissions viewable by all" ON lament_submissions;
+        DROP POLICY IF EXISTS "Users can view their own lament submissions" ON lament_submissions;
+        DROP POLICY IF EXISTS "Users can create lament submissions" ON lament_submissions;
+        DROP POLICY IF EXISTS "Users can update their own lament submissions" ON lament_submissions;
+        DROP POLICY IF EXISTS "Admins can view all lament submissions" ON lament_submissions;
+        DROP POLICY IF EXISTS "Admins can update all lament submissions" ON lament_submissions;
+        DROP POLICY IF EXISTS "Admins can delete lament submissions" ON lament_submissions;
+        RAISE NOTICE 'Dropped policies for lament_submissions table';
+    ELSE
+        RAISE NOTICE 'Table lament_submissions does not exist - skipping policies';
+    END IF;
+END $$;
 
 -- =============================================
 -- 2. DROP TRIGGERS (to avoid trigger dependency issues)
 -- =============================================
 
--- Drop triggers for crimson confessions
-DROP TRIGGER IF EXISTS update_crimson_confessions_updated_at ON crimson_confessions;
-DROP TRIGGER IF EXISTS update_crimson_confessions_submissions_updated_at ON crimson_confessions_submissions;
-
--- Drop triggers for lament submissions
-DROP TRIGGER IF EXISTS update_lament_submissions_updated_at ON lament_submissions;
+-- Drop triggers for crimson confessions (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'crimson_confessions' AND table_schema = 'public') THEN
+        DROP TRIGGER IF EXISTS update_crimson_confessions_updated_at ON crimson_confessions;
+        RAISE NOTICE 'Dropped triggers for crimson_confessions table';
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'crimson_confessions_submissions' AND table_schema = 'public') THEN
+        DROP TRIGGER IF EXISTS update_crimson_confessions_submissions_updated_at ON crimson_confessions_submissions;
+        RAISE NOTICE 'Dropped triggers for crimson_confessions_submissions table';
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'lament_submissions' AND table_schema = 'public') THEN
+        DROP TRIGGER IF EXISTS update_lament_submissions_updated_at ON lament_submissions;
+        RAISE NOTICE 'Dropped triggers for lament_submissions table';
+    END IF;
+END $$;
 
 -- =============================================
 -- 3. DROP INDEXES (to avoid index dependency issues)
 -- =============================================
 
--- Drop confession-related indexes
+-- Drop all confession/lament related indexes safely
 DROP INDEX IF EXISTS idx_crimson_confessions_status;
 DROP INDEX IF EXISTS idx_crimson_confessions_tips;
 DROP INDEX IF EXISTS idx_crimson_confessions_submissions_status;
 DROP INDEX IF EXISTS idx_crimson_confessions_submissions_author;
 DROP INDEX IF EXISTS idx_crimson_confessions_tips_submission;
 DROP INDEX IF EXISTS idx_crimson_confessions_tips_tipper;
-
--- Drop lament-related indexes
 DROP INDEX IF EXISTS idx_lament_submissions_status;
 DROP INDEX IF EXISTS idx_lament_submissions_tips;
 DROP INDEX IF EXISTS idx_lament_submissions_author;
@@ -66,36 +135,51 @@ DROP INDEX IF EXISTS idx_lament_submissions_author;
 -- 4. REMOVE TIPS TABLE REFERENCES (clean up first)
 -- =============================================
 
--- Delete all tips related to confessions and laments
-DELETE FROM tips WHERE submission_type IN ('crimson_confession', 'lament_submission');
+-- Delete all tips related to confessions and laments (only if tips table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tips' AND table_schema = 'public') THEN
+        DELETE FROM tips WHERE submission_type IN ('crimson_confession', 'lament_submission');
+        RAISE NOTICE 'Cleaned up tips table references';
+    ELSE
+        RAISE NOTICE 'Tips table does not exist - skipping cleanup';
+    END IF;
+END $$;
 
 -- =============================================
 -- 5. DROP CONFESSION/LAMENT SPECIFIC TABLES
 -- =============================================
 
--- Drop crimson confession tip tables first (due to foreign key constraints)
+-- Drop tables only if they exist
 DROP TABLE IF EXISTS crimson_confessions_tips CASCADE;
-
--- Drop crimson confession submission tables
 DROP TABLE IF EXISTS crimson_confessions_submissions CASCADE;
-
--- Drop main crimson confessions table
 DROP TABLE IF EXISTS crimson_confessions CASCADE;
-
--- Drop lament submission tables
 DROP TABLE IF EXISTS lament_submissions CASCADE;
+
+-- Log what was actually dropped
+DO $$
+BEGIN
+    RAISE NOTICE 'Attempted to drop all confession and lament tables (CASCADE used for safety)';
+END $$;
 
 -- =============================================
 -- 6. CLEAN UP TIPS TABLE CONSTRAINTS
 -- =============================================
 
--- Remove the submission_type constraint that includes confession/lament types
-ALTER TABLE tips DROP CONSTRAINT IF EXISTS tips_submission_type_check;
-
--- Add new constraint without confession/lament types (if tips table still exists and has other uses)
--- Note: Only add this if the tips table is used for other purposes
--- ALTER TABLE tips ADD CONSTRAINT tips_submission_type_check 
--- CHECK (submission_type IN ('forum_post', 'other_type')); -- adjust as needed
+-- Remove the submission_type constraint that includes confession/lament types (only if tips table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tips' AND table_schema = 'public') THEN
+        -- Remove the constraint if it exists
+        ALTER TABLE tips DROP CONSTRAINT IF EXISTS tips_submission_type_check;
+        RAISE NOTICE 'Removed submission_type constraint from tips table';
+        
+        -- Note: You may want to add a new constraint here if tips table is used for other purposes
+        -- Example: ALTER TABLE tips ADD CONSTRAINT tips_submission_type_check CHECK (submission_type IN ('forum_post', 'other_type'));
+    ELSE
+        RAISE NOTICE 'Tips table does not exist - skipping constraint cleanup';
+    END IF;
+END $$;
 
 -- =============================================
 -- 7. REMOVE ANY RELATED FUNCTIONS
