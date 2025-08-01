@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Shield, Crown, Cpu, Database, Users, Settings, ShoppingCart, Package, RefreshCw } from 'lucide-react';
@@ -26,13 +26,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchSystemStatus();
-    }
-  }, [user]);
-
-  const fetchSystemStatus = async () => {
+  const fetchSystemStatus = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -64,7 +58,13 @@ export default function AdminDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchSystemStatus();
+    }
+  }, [user, fetchSystemStatus]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

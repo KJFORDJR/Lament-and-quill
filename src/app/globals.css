@@ -175,3 +175,29 @@ a {
   -webkit-line-clamp: 3;
   line-clamp: 3;
 }
+
+/* Announcement Ticker Styles */
+.ticker-content {
+  animation: scroll 120s linear infinite;
+  transform: translateX(100%);
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.ticker-container:hover .ticker-content {
+  animation-play-state: paused;
+}
+
+/* Smooth scrolling performance */
+.ticker-container {
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}

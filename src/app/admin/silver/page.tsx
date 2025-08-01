@@ -120,7 +120,7 @@ export default function SilverAdminPanel() {
   const loadAnnouncements = async () => {
     try {
       const { data, error } = await supabase
-        .from('lament_announcements')
+        .from('announcements')
         .select('*')
         .order('priority', { ascending: true });
 
@@ -136,7 +136,7 @@ export default function SilverAdminPanel() {
       const { data, error } = await supabase
         .from('dossier_entries')
         .select('*')
-        .eq('city', 'lament')
+        .eq('city', 'silver')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -151,8 +151,8 @@ export default function SilverAdminPanel() {
       const [fragmentsCount, usersCount, announcementsCount, dossiersCount] = await Promise.all([
         supabase.from('lament_fragments_entries').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('lament_announcements').select('*', { count: 'exact', head: true }),
-        supabase.from('dossier_entries').select('*', { count: 'exact', head: true }).eq('city', 'lament')
+        supabase.from('announcements').select('*', { count: 'exact', head: true }),
+        supabase.from('dossier_entries').select('*', { count: 'exact', head: true }).eq('city', 'silver')
       ]);
 
       setStats({
@@ -202,7 +202,7 @@ export default function SilverAdminPanel() {
       onConfirm: async () => {
         try {
           const { error } = await supabase
-            .from('lament_announcements')
+            .from('announcements')
             .delete()
             .eq('id', id);
 
@@ -284,7 +284,7 @@ export default function SilverAdminPanel() {
   const toggleAnnouncementActive = async (id: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
-        .from('lament_announcements')
+        .from('announcements')
         .update({ is_active: !currentStatus })
         .eq('id', id);
 
@@ -630,6 +630,13 @@ export default function SilverAdminPanel() {
                   </p>
 
                   <div className="flex items-center space-x-4 pt-4 border-t border-gothic-steel/20">
+                    <button
+                      onClick={() => router.push(`/admin/silver/announcement/edit/${announcement.id}`)}
+                      className="flex items-center space-x-2 px-3 py-1 text-blue-400 hover:bg-blue-500/10 rounded-md transition-colors"
+                    >
+                      <Edit3 size={14} />
+                      <span className="text-sm">Edit</span>
+                    </button>
                     <button
                       onClick={() => toggleAnnouncementActive(announcement.id, announcement.is_active)}
                       className="flex items-center space-x-2 px-3 py-1 text-yellow-400 hover:bg-yellow-500/10 rounded-md transition-colors"

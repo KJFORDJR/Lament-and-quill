@@ -4,7 +4,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Eye, BookOpen, MessageCircle, Users, ShoppingBag, Map } from 'lucide-react';
-import AnnouncementsSection from '@/components/AnnouncementsSection';
 
 export default function Home() {
   const features = [
@@ -136,9 +135,6 @@ export default function Home() {
           </motion.div>
         </motion.div>
       </section>
-
-      {/* Announcements Section */}
-      <AnnouncementsSection />
 
       {/* Features Grid */}
       <section className="relative py-20 px-4 bg-gothic-charcoal/50">
