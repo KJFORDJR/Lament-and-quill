@@ -178,7 +178,7 @@ a {
 
 /* Announcement Ticker Styles */
 .ticker-content {
-  animation: scroll 120s linear infinite;
+  animation: scroll 60s linear infinite;
   transform: translateX(100%);
 }
 
