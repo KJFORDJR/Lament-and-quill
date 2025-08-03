@@ -18,9 +18,33 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Check if user is authenticated (should be handled by auth callback)
+  // Check if user is authenticated and handle URL fragments
   useEffect(() => {
     const checkAuth = async () => {
+      // First, check for URL fragments (access_token, refresh_token)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      
+      if (accessToken && refreshToken) {
+        // Set the session with the tokens from the URL
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        
+        if (error) {
+          console.error('Error setting session:', error);
+          setError('Authentication error. Please try the password reset process again.');
+          return;
+        }
+        
+        // Clear the URL hash for security
+        window.history.replaceState(null, '', window.location.pathname);
+        return;
+      }
+      
+      // If no tokens in URL, check for existing session
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
