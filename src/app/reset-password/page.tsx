@@ -18,20 +18,26 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Check for access_token in URL params (from email link)
+  // Check if user is authenticated (should be handled by auth callback)
   useEffect(() => {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
+    const checkAuth = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Error getting session:', error);
+        setError('Authentication error. Please try the password reset process again.');
+        return;
+      }
+      
+      if (!session) {
+        // No active session, redirect to forgot password
+        router.push('/forgot-password?error=no_session');
+        return;
+      }
+    };
     
-    if (accessToken && refreshToken) {
-      // Set the session with the tokens from the email link
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-    }
-  }, []);
+    checkAuth();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
