@@ -64,13 +64,29 @@ export default function CreateSilverFragment() {
   };
 
   const handlePreview = () => {
-    // Simple preview in a new window/tab
+    // Secure preview in a new window/tab with HTML escaping
     const previewWindow = window.open('', '_blank');
     if (previewWindow) {
+      // Escape HTML to prevent XSS
+      const escapeHtml = (unsafe: string) => {
+        return unsafe
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      };
+
+      const safeTitle = escapeHtml(formData.title);
+      const safeAuthor = escapeHtml(formData.author_name);
+      const safeCategory = escapeHtml(formData.category);
+      const safeExcerpt = formData.excerpt ? escapeHtml(formData.excerpt) : '';
+      const safeContent = escapeHtml(formData.content);
+
       previewWindow.document.write(`
         <html>
           <head>
-            <title>Preview: ${formData.title}</title>
+            <title>Preview: ${safeTitle}</title>
             <style>
               body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #e5e5e5; }
               h1 { color: #c0c0c0; border-bottom: 2px solid #c0c0c0; padding-bottom: 10px; }
@@ -79,14 +95,14 @@ export default function CreateSilverFragment() {
             </style>
           </head>
           <body>
-            <h1>${formData.title}</h1>
+            <h1>${safeTitle}</h1>
             <div class="meta">
-              <strong>Author:</strong> ${formData.author_name} | 
-              <strong>Category:</strong> ${formData.category} | 
+              <strong>Author:</strong> ${safeAuthor} | 
+              <strong>Category:</strong> ${safeCategory} | 
               <strong>Status:</strong> ${formData.is_published ? 'Published' : 'Draft'}
             </div>
-            ${formData.excerpt ? `<p><em>${formData.excerpt}</em></p>` : ''}
-            <div class="content">${formData.content}</div>
+            ${safeExcerpt ? `<p><em>${safeExcerpt}</em></p>` : ''}
+            <div class="content">${safeContent}</div>
           </body>
         </html>
       `);

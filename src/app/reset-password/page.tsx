@@ -101,7 +101,6 @@ export default function ResetPassword() {
 
       if (error) {
         setError(`Password reset failed: ${error.message}`);
-        console.error('Password update error:', error);
       } else {
         setSuccess(true);
         // Redirect to login after successful reset
@@ -110,7 +109,6 @@ export default function ResetPassword() {
         }, 3000);
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);

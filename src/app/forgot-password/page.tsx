@@ -31,12 +31,10 @@ export default function ForgotPassword() {
 
       if (error) {
         setError(`Reset failed: ${error.message}`);
-        console.error('Password reset error:', error);
       } else {
         setSuccess(true);
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
