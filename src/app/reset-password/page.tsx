@@ -21,8 +21,24 @@ export default function ResetPassword() {
   // Check if user is authenticated and handle URL fragments
   useEffect(() => {
     const checkAuth = async () => {
-      // First, check for URL fragments (access_token, refresh_token)
+      // Check for error parameters first
+      const urlParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      
+      // Check for errors in URL
+      const error_code = hashParams.get('error_code') || urlParams.get('error_code');
+      const error_description = hashParams.get('error_description') || urlParams.get('error_description');
+      
+      if (error_code) {
+        if (error_code === 'otp_expired') {
+          setError('The password reset link has expired. Please request a new one.');
+        } else {
+          setError(`Authentication error: ${error_description || error_code}`);
+        }
+        return;
+      }
+      
+      // Check for access tokens
       const accessToken = hashParams.get('access_token');
       const refreshToken = hashParams.get('refresh_token');
       
@@ -34,7 +50,6 @@ export default function ResetPassword() {
         });
         
         if (error) {
-          console.error('Error setting session:', error);
           setError('Authentication error. Please try the password reset process again.');
           return;
         }
@@ -48,7 +63,6 @@ export default function ResetPassword() {
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('Error getting session:', error);
         setError('Authentication error. Please try the password reset process again.');
         return;
       }
