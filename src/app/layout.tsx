@@ -8,6 +8,7 @@ import { MaintenanceWrapper } from '@/components/MaintenanceWrapper'
 import { SessionWarning } from '@/components/SessionWarning'
 import AdSenseScript from '../components/AdSenseScript'
 import AnnouncementTicker from '@/components/AnnouncementTicker'
+import PollBanner from '@/components/PollBanner'
 import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
@@ -45,6 +46,7 @@ export default function RootLayout({
               <div className="tech-grid bg-tech-grid opacity-10 fixed inset-0 pointer-events-none" />
               <Navigation />
               <AnnouncementTicker />
+              <PollBanner />
               <main className="relative z-10 min-h-screen">
                 {children}
               </main>

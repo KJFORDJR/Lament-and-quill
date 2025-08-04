@@ -83,12 +83,9 @@ export function useUser() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event);
-      
       if (event === 'TOKEN_REFRESHED') {
-        console.log('Token refreshed successfully');
+        // Token refreshed
       } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
         setUser(null);
         setProfile(null);
         setLoading(false);

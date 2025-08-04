@@ -24,10 +24,8 @@ export async function clearAuthState() {
         }
       });
     }
-    
-    console.log('Auth state cleared successfully');
   } catch (error) {
-    console.error('Error clearing auth state:', error);
+    // Silent error handling
   }
 }
 
