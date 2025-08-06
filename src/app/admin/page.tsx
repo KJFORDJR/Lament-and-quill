@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Shield, Crown, Cpu, Database, Users, Settings, ShoppingCart, Package, RefreshCw, BarChart3 } from 'lucide-react';
+import { Shield, Crown, Cpu, Database, Users, Settings, ShoppingCart, Package, RefreshCw, BarChart3, Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SystemStatus {
@@ -143,6 +143,10 @@ export default function AdminDashboard() {
             <Link href="/admin/users" className="cyber-button px-4 py-2 text-sm">
               <Users size={16} className="mr-2" />
               User Management
+            </Link>
+            <Link href="/admin/newsletter" className="cyber-button px-4 py-2 text-sm">
+              <Mail size={16} className="mr-2" />
+              Newsletter
             </Link>
             <Link href="/admin/settings" className="cyber-button px-4 py-2 text-sm">
               <Settings size={16} className="mr-2" />

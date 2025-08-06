@@ -69,6 +69,14 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showOrders, setShowOrders] = useState(false);
+  const [newsletterSubscription, setNewsletterSubscription] = useState<{
+    is_subscribed: boolean;
+    preferences: {
+      new_posts: boolean;
+      newsletters: boolean;
+      announcements: boolean;
+    };
+  } | null>(null);
   const [editForm, setEditForm] = useState({
     first_name: '',
     last_name: '',
@@ -97,6 +105,7 @@ export default function ProfilePage() {
     
     fetchProfile();
     fetchUserOrders();
+    fetchNewsletterSubscription();
   }, [user, authLoading]);
 
   const fetchProfile = async () => {
@@ -180,6 +189,119 @@ export default function ProfilePage() {
       setOrders(data as Order[] || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
+    }
+  };
+
+  const fetchNewsletterSubscription = async () => {
+    if (!user) return;
+
+    try {
+      // Use API endpoint instead of direct Supabase client to avoid RLS issues
+      const response = await fetch(`/api/newsletter/subscription?user_id=${user.id}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const subscription = data.subscription;
+        
+        if (subscription) {
+          setNewsletterSubscription({
+            is_subscribed: subscription.is_subscribed,
+            preferences: subscription.preferences || {
+              new_posts: true,
+              newsletters: true,
+              announcements: true
+            }
+          });
+        } else {
+          // No subscription found, set default state
+          setNewsletterSubscription({
+            is_subscribed: false,
+            preferences: {
+              new_posts: true,
+              newsletters: true,
+              announcements: true
+            }
+          });
+        }
+      } else {
+        console.error('Failed to fetch newsletter subscription:', await response.text());
+        // Set default state on error
+        setNewsletterSubscription({
+          is_subscribed: false,
+          preferences: {
+            new_posts: true,
+            newsletters: true,
+            announcements: true
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching newsletter subscription:', error);
+      // Set default state on error
+      setNewsletterSubscription({
+        is_subscribed: false,
+        preferences: {
+          new_posts: true,
+          newsletters: true,
+          announcements: true
+        }
+      });
+    }
+  };
+
+  const handleNewsletterUpdate = async (isActive: boolean, preferences?: any) => {
+    if (!user) return;
+
+    try {
+      if (isActive) {
+        // Subscribe/Update preferences
+        const response = await fetch('/api/newsletter/subscribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            email: user.email,
+            preferences: preferences || newsletterSubscription?.preferences
+          }),
+        });
+
+        if (response.ok) {
+          setNewsletterSubscription({
+            is_subscribed: true,
+            preferences: preferences || newsletterSubscription?.preferences || {
+              new_posts: true,
+              newsletters: true,
+              announcements: true
+            }
+          });
+        } else {
+          const error = await response.json();
+          console.error('Newsletter subscription error:', error);
+        }
+      } else {
+        // Unsubscribe
+        const response = await fetch(`/api/newsletter/subscribe?user_id=${user.id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          setNewsletterSubscription({
+            is_subscribed: false,
+            preferences: newsletterSubscription?.preferences || {
+              new_posts: true,
+              newsletters: true,
+              announcements: true
+            }
+          });
+        } else {
+          const error = await response.json();
+          console.error('Newsletter unsubscribe error:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating newsletter subscription:', error);
     }
   };
 
@@ -672,6 +794,114 @@ export default function ProfilePage() {
             )}
           </motion.div>
         )}
+
+        {/* Newsletter Preferences */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-8 gothic-container p-6"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <Mail className="text-gothic-silver mr-3" size={24} />
+              <div>
+                <h2 className="text-xl font-gothic font-bold text-gothic-silver">
+                  Newsletter Preferences
+                </h2>
+                <p className="text-sm text-gothic-steel">
+                  Stay informed about new chronicles and announcements
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Main Newsletter Toggle */}
+            <div className="flex items-center justify-between p-4 bg-gothic-charcoal/30 rounded-lg border border-gothic-dark-gray">
+              <div>
+                <h3 className="text-gothic-silver font-medium">Newsletter Subscription</h3>
+                <p className="text-sm text-gothic-steel">
+                  Receive updates from both Silver Heights and Crimson Vale
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newsletterSubscription?.is_subscribed || false}
+                  onChange={(e) => handleNewsletterUpdate(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gothic-dark-gray peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gothic-crimson/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gothic-crimson"></div>
+              </label>
+            </div>
+
+            {/* Preference Details (only show if subscribed) */}
+            {newsletterSubscription?.is_subscribed && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="space-y-3 pl-4 border-l-2 border-gothic-crimson/30"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gothic-silver text-sm">New Posts & Updates</p>
+                    <p className="text-xs text-gothic-steel">Be notified when new content is published</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={newsletterSubscription.preferences.new_posts}
+                    onChange={(e) => {
+                      const newPrefs = {
+                        ...newsletterSubscription.preferences,
+                        new_posts: e.target.checked
+                      };
+                      handleNewsletterUpdate(true, newPrefs);
+                    }}
+                    className="w-4 h-4 text-gothic-crimson bg-gothic-charcoal border-gothic-dark-gray rounded focus:ring-gothic-crimson focus:ring-2"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gothic-silver text-sm">Official Newsletters</p>
+                    <p className="text-xs text-gothic-steel">Monthly newsletters from the chroniclers</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={newsletterSubscription.preferences.newsletters}
+                    onChange={(e) => {
+                      const newPrefs = {
+                        ...newsletterSubscription.preferences,
+                        newsletters: e.target.checked
+                      };
+                      handleNewsletterUpdate(true, newPrefs);
+                    }}
+                    className="w-4 h-4 text-gothic-crimson bg-gothic-charcoal border-gothic-dark-gray rounded focus:ring-gothic-crimson focus:ring-2"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gothic-silver text-sm">Important Announcements</p>
+                    <p className="text-xs text-gothic-steel">Site updates and important news</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={newsletterSubscription.preferences.announcements}
+                    onChange={(e) => {
+                      const newPrefs = {
+                        ...newsletterSubscription.preferences,
+                        announcements: e.target.checked
+                      };
+                      handleNewsletterUpdate(true, newPrefs);
+                    }}
+                    className="w-4 h-4 text-gothic-crimson bg-gothic-charcoal border-gothic-dark-gray rounded focus:ring-gothic-crimson focus:ring-2"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </motion.div>
 
         {/* Account Info */}
         <motion.div

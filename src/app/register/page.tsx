@@ -18,7 +18,8 @@ export default function Register() {
     username: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    newsletterSubscription: false
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,6 +50,7 @@ export default function Register() {
           emailRedirectTo: redirectUrl,
           data: {
             username: formData.username,
+            newsletter_subscription: formData.newsletterSubscription
           }
         }
       });
@@ -84,6 +86,33 @@ export default function Register() {
             // Don't fail the registration, just log the error
           } else {
             console.log('Profile created successfully via API');
+            
+            // Subscribe to newsletter if user opted in
+            if (formData.newsletterSubscription) {
+              try {
+                const newsletterResponse = await fetch('/api/newsletter/subscribe', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    user_id: data.user.id,
+                    email: formData.email,
+                    preferences: {
+                      new_posts: true,
+                      newsletters: true,
+                      announcements: true
+                    }
+                  }),
+                });
+
+                if (!newsletterResponse.ok) {
+                  console.error('Newsletter subscription failed:', await newsletterResponse.json());
+                }
+              } catch (newsletterErr) {
+                console.error('Newsletter subscription exception:', newsletterErr);
+              }
+            }
           }
         } catch (profileErr) {
           console.error('Profile creation exception:', profileErr);
@@ -258,14 +287,37 @@ export default function Register() {
               </label>
             </motion.div>
 
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.75, duration: 0.5 }}
+              className="text-sm"
+            >
+              <label className="flex items-start text-gothic-steel">
+                <input 
+                  type="checkbox" 
+                  checked={formData.newsletterSubscription}
+                  onChange={(e) => setFormData({ ...formData, newsletterSubscription: e.target.checked })}
+                  className="mr-3 mt-1 rounded bg-gothic-charcoal border-gothic-dark-gray focus:ring-gothic-crimson focus:border-gothic-crimson" 
+                />
+                <span>
+                  Stay informed of new chronicles and announcements from both cities
+                  <span className="block text-xs text-gothic-steel/70 mt-1">
+                    (You can change this preference in your profile settings at any time)
+                  </span>
+                </span>
+              </label>
+            </motion.div>
+
             <motion.button
               type="submit"
+              disabled={loading}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8, duration: 0.5 }}
-              className="w-full cyber-button text-center py-3 text-lg font-medium"
+              className="w-full cyber-button text-center py-3 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Begin Your Journey
+              {loading ? 'Initiating Chronicle...' : 'Begin Your Journey'}
             </motion.button>
           </form>
 
