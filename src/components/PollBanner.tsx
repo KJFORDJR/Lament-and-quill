@@ -98,6 +98,9 @@ export default function PollBanner() {
           setShowResults(true);
           fetchAnalytics(poll.id);
         }
+      } else {
+        // If there's an error checking vote status, assume user hasn't voted
+        setHasVoted(false);
       }
     } catch (error) {
       // Ignore error - assume user hasn't voted

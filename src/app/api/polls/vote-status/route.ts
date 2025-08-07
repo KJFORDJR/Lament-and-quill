@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     // Check if user has already voted using admin client
     const { data: existingVote, error: voteCheckError } = await supabaseAdmin
       .from('poll_votes')
-      .select('id, option_id, created_at')
+      .select('id, option_id, voted_at')
       .eq('poll_id', pollId)
       .eq('user_id', user.id)
       .single()
