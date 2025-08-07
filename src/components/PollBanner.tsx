@@ -33,6 +33,7 @@ interface PollAnalytics {
 export default function PollBanner() {
   const { user, session } = useAuth();
   const [poll, setPoll] = useState<Poll | null>(null);
+  const [previousPollId, setPreviousPollId] = useState<string | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<PollAnalytics | null>(null);
@@ -45,10 +46,19 @@ export default function PollBanner() {
   }, []);
 
   useEffect(() => {
-    if (poll && user) {
+    if (poll && user && session) {
+      // Reset states if this is a new poll
+      if (poll.id !== previousPollId) {
+        setHasVoted(false);
+        setSelectedOption(null);
+        setShowResults(false);
+        setAnalytics(null);
+        setPreviousPollId(poll.id);
+      }
+      
       checkIfUserVoted();
     }
-  }, [poll, user]);
+  }, [poll, user, session, previousPollId]);
 
   const fetchActivePoll = async () => {
     try {
@@ -72,19 +82,26 @@ export default function PollBanner() {
   };
 
   const checkIfUserVoted = async () => {
-    if (!poll || !user) return;
+    if (!poll || !user || !session) return;
 
     try {
-      const response = await fetch(`/api/polls/analytics?id=${poll.id}`);
+      const response = await fetch(`/api/polls/vote-status?pollId=${poll.id}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       const data = await response.json();
       
       if (response.ok) {
-        // Check if current user has voted by looking at the voting timeline
-        // This is a simple check - in production you might want a dedicated endpoint
-        setHasVoted(false); // For now, we'll rely on the voting attempt to determine this
+        setHasVoted(data.hasVoted);
+        if (data.hasVoted) {
+          setShowResults(true);
+          fetchAnalytics(poll.id);
+        }
       }
     } catch (error) {
-      // Ignore error
+      // Ignore error - assume user hasn't voted
+      setHasVoted(false);
     }
   };
 
@@ -105,7 +122,7 @@ export default function PollBanner() {
   };
 
   const submitVote = async () => {
-    if (!poll || !selectedOption || !user || !session || isSubmitting) return;
+    if (!poll || !selectedOption || !user || !session || isSubmitting || hasVoted) return;
 
     setIsSubmitting(true);
 
@@ -125,12 +142,14 @@ export default function PollBanner() {
       if (response.ok) {
         setHasVoted(true);
         setShowResults(true);
+        setSelectedOption(null); // Clear selection after successful vote
         fetchAnalytics(poll.id);
       } else {
         const error = await response.json();
         if (error.error === 'You have already voted in this poll') {
           setHasVoted(true);
           setShowResults(true);
+          setSelectedOption(null);
           fetchAnalytics(poll.id);
         } else {
           alert(error.error || 'Failed to submit vote');
@@ -234,7 +253,7 @@ export default function PollBanner() {
                     </div>
                   )}
                 </motion.div>
-              ) : (
+              ) : !hasVoted && !isExpired ? (
                 <div className="space-y-3">
                   {poll.poll_options.map((option) => (
                     <motion.button
@@ -294,6 +313,15 @@ export default function PollBanner() {
                       {new Date(poll.expires_at).toLocaleTimeString()}
                     </div>
                   )}
+                </div>
+              ) : (
+                <div className="text-sm text-gothic-steel italic">
+                  {hasVoted 
+                    ? 'You have already voted in this poll. Thank you for participating!' 
+                    : isExpired 
+                    ? 'This poll has expired.'
+                    : 'Loading poll status...'
+                  }
                 </div>
               )}
             </div>
