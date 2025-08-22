@@ -39,7 +39,7 @@ export function Footer() {
               {/* Social Media Links */}
               <div className="flex space-x-4 mb-4">
                 <a 
-                  href="https://www.tiktok.com/@yourtiktokhandle" 
+                  href="https://www.tiktok.com/@lament.and.quill" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-gothic-steel hover:text-gothic-red transition-colors"
