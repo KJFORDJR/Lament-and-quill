@@ -8,21 +8,6 @@ import { useReadModal } from '@/hooks/useReadModal';
 import { ReadModal } from '@/components/ReadModal';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Crimson Ledger - Official Chronicles',
-  description: 'Official journal entries from Crimson City, curated by administrators. Discover the dark secrets and chronicles of the crimson realm.',
-  keywords: ['crimson ledger', 'chronicles', 'crimson city', 'official journal', 'dark fiction', 'admin curated'],
-  openGraph: {
-    title: 'Crimson Ledger - Official Chronicles | Lament and Quill',
-    description: 'Official journal entries from Crimson City, curated by administrators.',
-    url: 'https://lamentandquill.com/crimson-ledger',
-  },
-  alternates: {
-    canonical: '/crimson-ledger',
-  },
-}
 
 interface CrimsonEntry {
   id: string;
