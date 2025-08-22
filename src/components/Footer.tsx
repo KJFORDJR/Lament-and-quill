@@ -34,8 +34,31 @@ export function Footer() {
 
           {/* Legal & Contact */}
           <div className="space-y-4">
-            <h4 className="text-lg font-gothic text-gothic-silver">Contact</h4>
-            <div className="text-gothic-steel text-sm space-y-1">
+            <h4 className="text-lg font-gothic text-gothic-silver">Connect</h4>
+            <div className="text-gothic-steel text-sm space-y-2">
+              {/* Social Media Links */}
+              <div className="flex space-x-4 mb-4">
+                <a 
+                  href="https://www.tiktok.com/@yourtiktokhandle" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-gothic-steel hover:text-gothic-red transition-colors"
+                  aria-label="Follow us on TikTok"
+                >
+                  TikTok
+                </a>
+                <a 
+                  href="https://www.instagram.com/lamentandquill/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-gothic-steel hover:text-gothic-red transition-colors"
+                  aria-label="Follow us on Instagram"
+                >
+                  Instagram
+                </a>
+                {/* Add other social media links as needed */}
+              </div>
+              
               <p>&copy; 2025 Lament and Quill</p>
               <p>All rights reserved</p>
               <div className="pt-2">

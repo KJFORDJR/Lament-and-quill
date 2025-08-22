@@ -1,0 +1,26 @@
+User-agent: *
+Allow: /
+
+# Disallow admin areas and sensitive pages
+Disallow: /admin/
+Disallow: /api/
+Disallow: /checkout/
+Disallow: /orders/
+Disallow: /profile/
+Disallow: /reset-password/
+Disallow: /verify-email/
+Disallow: /email-verification-pending/
+Disallow: /test-*/
+Disallow: /maintenance/
+
+# Allow important pages
+Allow: /dossier/
+Allow: /crimson-ledger/
+Allow: /fragments-of-lament/
+Allow: /forum/
+Allow: /merchandise/
+Allow: /login/
+Allow: /register/
+
+# Sitemap location
+Sitemap: https://lamentandquill.com/sitemap.xml
