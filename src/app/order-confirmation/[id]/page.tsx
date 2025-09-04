@@ -328,15 +328,20 @@ export default function OrderConfirmationPage() {
                 <div className="flex justify-between">
                   <span className="text-gothic-steel">Subtotal</span>
                   <span className="text-gothic-silver">
-                    ${(order.total_amount / 1.08 - (order.total_amount > 50 ? 0 : 9.99)).toFixed(2)}
+                    ${order.order_items.reduce((sum, item) => sum + (item.price_at_time * item.quantity), 0).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gothic-steel">Shipping</span>
                   <span className="text-gothic-silver">
-                    {order.total_amount > 50 ? 'Free' : '$9.99'}
+                    ${((order.total_amount / 1.08) - order.order_items.reduce((sum, item) => sum + (item.price_at_time * item.quantity), 0)).toFixed(2)}
                   </span>
                 </div>
+                {((order.total_amount / 1.08) - order.order_items.reduce((sum, item) => sum + (item.price_at_time * item.quantity), 0)) > 0 && (
+                  <div className="text-xs text-gothic-steel italic">
+                    All shipping is first class
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gothic-steel">Tax</span>
                   <span className="text-gothic-silver">

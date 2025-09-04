@@ -12,6 +12,7 @@ interface ProductForm {
   title: string;
   description: string;
   price: string;
+  shipping: string;
   image_url: string;
   badge_text: string;
   badge_color: string;
@@ -34,6 +35,7 @@ export default function EditProduct() {
     title: '',
     description: '',
     price: '',
+    shipping: '',
     image_url: '',
     badge_text: '',
     badge_color: '#666666',
@@ -83,6 +85,7 @@ export default function EditProduct() {
           title: data.title || '',
           description: data.description || '',
           price: data.price?.toString() || '',
+          shipping: data.shipping?.toString() || '0',
           image_url: data.image_url || '',
           badge_text: data.badge_text || '',
           badge_color: data.badge_color || '#666666',
@@ -114,6 +117,7 @@ export default function EditProduct() {
           title: form.title.trim(),
           description: form.description.trim(),
           price: parseFloat(form.price),
+          shipping: parseFloat(form.shipping),
           image_url: form.image_url.trim() || null,
           badge_text: form.badge_text.trim() || null,
           badge_color: form.badge_color,
@@ -250,6 +254,24 @@ export default function EditProduct() {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-gothic-silver font-medium mb-2">
+                    Shipping ($) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.shipping}
+                    onChange={(e) => handleInputChange('shipping', e.target.value)}
+                    className="w-full bg-gothic-dark-gray border border-gothic-dark-gray rounded-md px-4 py-3 text-white focus:outline-none focus:border-gothic-silver"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-gothic-silver font-medium mb-2">
                     Stock Quantity

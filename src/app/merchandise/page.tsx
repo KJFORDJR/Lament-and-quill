@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShoppingBag, Star, Eye, Heart, Filter } from 'lucide-react';
+import { ShoppingBag, Star, Eye, Heart, Filter, Truck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import AddToCartDialog from '@/components/AddToCartDialog';
@@ -14,6 +14,7 @@ interface MerchandiseItem {
   title: string;
   description: string;
   price: number;
+  shipping: number;
   image_url: string | null;
   badge_text: string | null;
   badge_color: string;
@@ -364,11 +365,17 @@ export default function Merchandise() {
                       </span>
                     </div>
 
-                    {/* Price and Actions */}
+                    {/* Price and Shipping */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-col space-y-1">
                         <span className="text-xl font-bold text-gothic-silver">
                           ${product.price.toFixed(2)}
+                        </span>
+                        <span className="text-sm text-gothic-steel">
+                          + ${product.shipping.toFixed(2)} shipping
+                        </span>
+                        <span className="text-xs text-gothic-steel italic">
+                          All shipping is first class
                         </span>
                       </div>
                       {user ? (

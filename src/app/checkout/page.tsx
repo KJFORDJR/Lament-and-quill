@@ -17,6 +17,7 @@ interface CartItem {
     id: string;
     title: string;
     price: number;
+    shipping: number;
     image_url: string | null;
     stock_quantity: number;
     category: string;
@@ -104,6 +105,7 @@ export default function CheckoutPage() {
             id,
             title,
             price,
+            shipping,
             image_url,
             stock_quantity,
             category,
@@ -196,8 +198,13 @@ export default function CheckoutPage() {
         (sum, item) => sum + (item.merchandise.price * item.quantity), 
         0
       );
-      const hasPhysicalItems = cartItems.some(item => item.merchandise.category !== 'digital');
-      const shipping = hasPhysicalItems ? (subtotal > 50 ? 0 : 9.99) : 0;
+      
+      // Calculate shipping based on individual product shipping costs
+      const shipping = cartItems.reduce(
+        (sum, item) => sum + (item.merchandise.shipping * item.quantity), 
+        0
+      );
+      
       const tax = subtotal * 0.08;
       const total = subtotal + shipping + tax;
 
@@ -314,11 +321,12 @@ export default function CheckoutPage() {
     0
   );
   
-  // Check if cart contains any physical items (non-digital goods)
-  const hasPhysicalItems = cartItems.some(item => item.merchandise.category !== 'digital');
+  // Calculate shipping based on individual product shipping costs
+  const shipping = cartItems.reduce(
+    (sum, item) => sum + (item.merchandise.shipping * item.quantity), 
+    0
+  );
   
-  // Only charge shipping for physical items
-  const shipping = hasPhysicalItems ? (subtotal > 50 ? 0 : 9.99) : 0;
   const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax;
 
@@ -757,11 +765,14 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gothic-steel">Shipping</span>
                   <span className="text-gothic-silver">
-                    {!hasPhysicalItems ? (
-                      <span className="text-gothic-silver">📱 Digital goods - No shipping required</span>
-                    ) : shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}
+                    {shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}
                   </span>
                 </div>
+                {shipping > 0 && (
+                  <div className="text-xs text-gothic-steel italic">
+                    All shipping is first class
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gothic-steel">Tax</span>
                   <span className="text-gothic-silver">${tax.toFixed(2)}</span>

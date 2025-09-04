@@ -19,6 +19,7 @@ interface CartItem {
     title: string;
     description: string;
     price: number;
+    shipping: number;
     image_url: string | null;
     badge_text: string | null;
     badge_color: string;
@@ -58,6 +59,7 @@ export default function CartPage() {
             title,
             description,
             price,
+            shipping,
             image_url,
             badge_text,
             badge_color,
@@ -148,11 +150,12 @@ export default function CartPage() {
     0
   );
   
-  // Check if cart contains any physical items (non-digital goods)
-  const hasPhysicalItems = cartItems.some(item => item.merchandise.category !== 'digital');
+  // Calculate shipping based on individual product shipping costs
+  const shipping = cartItems.reduce(
+    (sum, item) => sum + (item.merchandise.shipping * item.quantity), 
+    0
+  );
   
-  // Only charge shipping for physical items
-  const shipping = hasPhysicalItems ? (subtotal > 50 ? 0 : 9.99) : 0;
   const tax = subtotal * 0.08; // 8% tax
   const total = subtotal + shipping + tax;
 
@@ -277,9 +280,14 @@ export default function CartPage() {
                         {item.merchandise.category}
                       </p>
                       <div className="flex items-center justify-between">
-                        <span className="text-xl font-bold text-gothic-silver">
-                          ${item.merchandise.price.toFixed(2)}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-xl font-bold text-gothic-silver">
+                            ${item.merchandise.price.toFixed(2)}
+                          </span>
+                          <span className="text-sm text-gothic-steel">
+                            + ${item.merchandise.shipping.toFixed(2)} shipping
+                          </span>
+                        </div>
                         
                         {/* Stock warning */}
                         {item.merchandise.stock_quantity < item.quantity && (
@@ -361,28 +369,12 @@ export default function CartPage() {
                   
                   <div className="flex justify-between">
                     <span className="text-gothic-steel">Shipping</span>
-                    <span className="text-gothic-silver">
-                      {shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}
-                    </span>
+                    <span className="text-gothic-silver">${shipping.toFixed(2)}</span>
                   </div>
                   
-                  {!hasPhysicalItems && (
-                    <div className="text-green-400 text-xs">
-                      📱 Digital goods - No shipping required
-                    </div>
-                  )}
-                  
-                  {hasPhysicalItems && shipping === 0 && subtotal > 50 && (
-                    <div className="text-green-400 text-xs">
-                      🎉 You qualify for free shipping!
-                    </div>
-                  )}
-                  
-                  {hasPhysicalItems && shipping > 0 && (
-                    <div className="text-gothic-steel text-xs">
-                      Free shipping on orders over $50
-                    </div>
-                  )}
+                  <div className="text-gothic-steel text-xs mt-2">
+                    All shipping is first class
+                  </div>
                   
                   <div className="flex justify-between">
                     <span className="text-gothic-steel">Tax</span>
