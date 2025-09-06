@@ -13,13 +13,21 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Get system configuration with admin privileges (bypasses RLS)
+    // Only select PUBLIC, non-sensitive configuration fields
     const { data: config, error } = await supabaseAdmin
       .from('system_config')
-      .select('*')
+      .select(`
+        maintenance_mode,
+        registration_enabled, 
+        forum_enabled,
+        marketplace_enabled,
+        site_title,
+        site_description,
+        ads_enabled
+      `)
       .single();
 
-    console.log('API: Raw config data:', config);
+    console.log('API: Raw config data (public fields only):', config);
     console.log('API: Error:', error);
 
     if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"

@@ -79,15 +79,30 @@ export default function SystemSettingsPage() {
   const loadSystemConfig = async () => {
     setLoading(true);
     try {
-      // Try to load from a system_config table, or use defaults
-      const { data, error } = await supabase
-        .from('system_config')
-        .select('*')
-        .single();
+      // Get user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error('No valid session found for admin config access');
+        return;
+      }
 
-      console.log('Loading system config - data:', data, 'error:', error);
+      // Use the new secure admin endpoint
+      const response = await fetch('/api/admin/system-config', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (data && !error) {
+      if (!response.ok) {
+        throw new Error(`Failed to load config: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Loading system config - data:', data);
+
+      if (data) {
         // Ensure ads_enabled is set, default to false if missing
         const configWithAds = {
           ...data,
@@ -111,68 +126,39 @@ export default function SystemSettingsPage() {
     
     setSaving(true);
     try {
+      // Get user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error('No valid session found for admin config save');
+        alert('Authentication error. Please refresh and try again.');
+        return;
+      }
+
       const configData = {
         ...config,
         updated_at: new Date().toISOString()
       };
 
-      console.log('Saving config data:', configData);
+      console.log('Saving config data via secure API...');
 
-      // First try to get existing config
-      const { data: existingConfigs, error: fetchError } = await supabase
-        .from('system_config')
-        .select('*');
+      // Use the new secure admin endpoint
+      const response = await fetch('/api/admin/system-config', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(configData)
+      });
 
-      if (fetchError) {
-        console.error('Error fetching existing config:', fetchError);
-        throw fetchError;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      console.log('Existing configs found:', existingConfigs);
-
-      if (existingConfigs && existingConfigs.length > 0) {
-        // Update the first (and should be only) config record
-        const configId = existingConfigs[0].id;
-        console.log('Updating config with ID:', configId);
-        
-        const { error: updateError } = await supabase
-          .from('system_config')
-          .update(configData)
-          .eq('id', configId);
-        
-        if (updateError) {
-          console.error('Update error:', updateError);
-          throw updateError;
-        }
-        
-        console.log('Config updated successfully');
-      } else {
-        // Insert new config
-        console.log('Inserting new config...');
-        const { error: insertError } = await supabase
-          .from('system_config')
-          .insert({
-            ...configData,
-            created_at: new Date().toISOString()
-          });
-        
-        if (insertError) {
-          console.error('Insert error:', insertError);
-          throw insertError;
-        }
-        
-        console.log('Config inserted successfully');
-      }
-
-      // Verify the save worked by fetching the data again
-      const { data: verifyConfig, error: verifyError } = await supabase
-        .from('system_config')
-        .select('marketplace_enabled')
-        .single();
-      
-      if (!verifyError && verifyConfig) {
-        console.log('Verification - Marketplace enabled:', verifyConfig.marketplace_enabled);
-      }
+      const result = await response.json();
+      console.log('Config saved successfully:', result);
 
       alert('System settings saved successfully! Note: Some changes may take up to 30 seconds to take effect site-wide.');
     } catch (error) {
