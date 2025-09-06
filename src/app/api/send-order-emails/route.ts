@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('✅ Found user email:', authUser.user?.email);
+    console.log('✅ Found user for order notification');
 
     // Combine the data
     const orderWithUser = {

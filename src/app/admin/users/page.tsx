@@ -86,7 +86,7 @@ export default function UserManagementPage() {
 
       if (error) throw error;
 
-      console.log('Fetched users:', data); // Debug log
+      console.log('Fetched users count:', data?.length || 0); // Debug log - count only
       setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);

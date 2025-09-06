@@ -64,7 +64,7 @@ export default function Register() {
       if (data.user) {
         // Create user profile using API endpoint to bypass RLS
         try {
-          console.log('Creating profile for user:', data.user.id, 'with username:', formData.username);
+          console.log('Creating user profile...');
           
           const response = await fetch('/api/profile/create', {
             method: 'POST',

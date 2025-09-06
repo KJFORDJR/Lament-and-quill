@@ -41,7 +41,7 @@ export default function VerifyEmailPage() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user && user.email_confirmed_at) {
-        console.log('User is already verified:', user.email);
+        console.log('User is already verified');
         setStatus('success');
         setMessage('Your email has been verified successfully! Welcome to the convergence.');
         setUserEmail(user.email || '');
@@ -169,7 +169,7 @@ export default function VerifyEmailPage() {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user && user.email_confirmed_at) {
-          console.log('User is already verified (no params):', user.email);
+          console.log('User is already verified (no params)');
           setStatus('success');
           setMessage('Your email has been verified successfully! Welcome to the convergence.');
           setUserEmail(user.email || '');

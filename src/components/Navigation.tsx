@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Menu, X, User, LogIn, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSystemConfig } from '@/hooks/useSystemConfig';
 
 export function Navigation() {
   const { user, isAdmin, signOut } = useAuth();
+  const { config } = useSystemConfig();
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
@@ -14,8 +16,8 @@ export function Navigation() {
     { name: 'Dossier', href: '/dossier', theme: 'dossier' },
     { name: 'Crimson Ledger', href: '/crimson-ledger', theme: 'crimson' },
     { name: 'Fragments of Lament', href: '/fragments-of-lament', theme: 'green' },
-    { name: 'The Ledger and the Lament', href: '/forum' },
-    { name: 'Black Ledger Goods', href: '/merchandise' }
+    ...(config?.forum_enabled ? [{ name: 'The Ledger and the Lament', href: '/forum' }] : []),
+    ...(config?.marketplace_enabled ? [{ name: 'Black Ledger Goods', href: '/merchandise' }] : [])
   ];
 
   return (

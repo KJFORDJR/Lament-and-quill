@@ -62,7 +62,6 @@ export default function ThreadPage() {
     console.log('ThreadPage - User state changed:', { 
       userId: user?.id, 
       isAuthenticated: !!user,
-      userObject: user ? { id: user.id, email: user.email } : null,
       userLoading
     });
   }, [user, userLoading]);
@@ -406,7 +405,6 @@ export default function ThreadPage() {
     console.log('saveThreadEdit - User state:', { 
       user: user?.id, 
       isAuthenticated: !!user,
-      userFull: user ? { id: user.id, email: user.email } : 'NO USER OBJECT',
       userLoading
     });
     console.log('saveThreadEdit - Thread state:', { threadId: thread.id, threadIdType: typeof thread.id });
