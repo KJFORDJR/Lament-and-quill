@@ -197,34 +197,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Call to Action */}
-      <section className="relative py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-4xl md:text-5xl font-gothic font-bold text-gothic-silver mb-8">
-              Choose Your Path
-            </h2>
-            <p className="text-xl text-gothic-steel mb-12 max-w-2xl mx-auto">
-              The chronicles await your voice. The cities hunger for new stories. 
-              Will you write in crimson ink or silver stylus?
-            </p>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Link href="/register" className="cyber-button text-lg px-8 py-4">
-                Begin Your Chronicle
-              </Link>
-              <Link href="/login" className="cyber-button text-lg px-8 py-4">
-                Continue Your Journey
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
     </div>
   );
 }
