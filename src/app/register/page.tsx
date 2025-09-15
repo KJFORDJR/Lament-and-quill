@@ -19,6 +19,7 @@ export default function Register() {
     email: '',
     password: '',
     confirmPassword: '',
+    cityAffiliation: '', // Force selection - no default
     newsletterSubscription: false
   });
 
@@ -30,6 +31,12 @@ export default function Register() {
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.cityAffiliation) {
+      setError('You must choose your city affiliation');
       setLoading(false);
       return;
     }
@@ -66,17 +73,18 @@ export default function Register() {
         try {
           console.log('Creating user profile...');
           
+          const profileData = {
+            id: data.user.id,
+            username: formData.username,
+            city_affiliation: formData.cityAffiliation
+          };
+          
           const response = await fetch('/api/profile/create', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              id: data.user.id,
-              username: formData.username,
-              user_role: 'user',
-              city_affiliation: 'neutral'
-            }),
+            body: JSON.stringify(profileData),
           });
 
           const result = await response.json();
@@ -266,10 +274,115 @@ export default function Register() {
               </div>
             </motion.div>
 
+            {/* City Affiliation Selection */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.7, duration: 0.5 }}
+            >
+              <label className="block text-sm font-medium text-gothic-silver mb-3">
+                Choose Your Allegiance *
+              </label>
+              <div className="grid grid-cols-1 gap-3">
+                {/* Crimson Option */}
+                <label className={`relative p-4 border rounded-lg cursor-pointer transition-all ${
+                  formData.cityAffiliation === 'crimson' 
+                    ? 'border-gothic-crimson bg-gothic-crimson/10' 
+                    : 'border-gothic-dark-gray hover:border-gothic-crimson/50'
+                }`}>
+                  <input
+                    type="radio"
+                    name="cityAffiliation"
+                    value="crimson"
+                    checked={formData.cityAffiliation === 'crimson'}
+                    onChange={(e) => setFormData({ ...formData, cityAffiliation: e.target.value })}
+                    className="sr-only"
+                  />
+                  <div className="flex items-center">
+                    <div className={`w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center ${
+                      formData.cityAffiliation === 'crimson' 
+                        ? 'border-gothic-crimson bg-gothic-crimson' 
+                        : 'border-gothic-dark-gray'
+                    }`}>
+                      {formData.cityAffiliation === 'crimson' && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-gothic-crimson font-medium">Crimson City</div>
+                      <div className="text-sm text-gothic-steel">The realm of passion, justice, and unwavering resolve</div>
+                    </div>
+                  </div>
+                </label>
+
+                {/* Silver Option */}
+                <label className={`relative p-4 border rounded-lg cursor-pointer transition-all ${
+                  formData.cityAffiliation === 'silver' 
+                    ? 'border-gothic-silver bg-gothic-silver/10' 
+                    : 'border-gothic-dark-gray hover:border-gothic-silver/50'
+                }`}>
+                  <input
+                    type="radio"
+                    name="cityAffiliation"
+                    value="silver"
+                    checked={formData.cityAffiliation === 'silver'}
+                    onChange={(e) => setFormData({ ...formData, cityAffiliation: e.target.value })}
+                    className="sr-only"
+                  />
+                  <div className="flex items-center">
+                    <div className={`w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center ${
+                      formData.cityAffiliation === 'silver' 
+                        ? 'border-gothic-silver bg-gothic-silver' 
+                        : 'border-gothic-dark-gray'
+                    }`}>
+                      {formData.cityAffiliation === 'silver' && (
+                        <div className="w-2 h-2 bg-gothic-charcoal rounded-full"></div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-gothic-silver font-medium">Silver City</div>
+                      <div className="text-sm text-gothic-steel">The domain of precision, order, and calculated action</div>
+                    </div>
+                  </div>
+                </label>
+
+                {/* Neutral Option */}
+                <label className={`relative p-4 border rounded-lg cursor-pointer transition-all ${
+                  formData.cityAffiliation === 'neutral' 
+                    ? 'border-gothic-steel bg-gothic-steel/10' 
+                    : 'border-gothic-dark-gray hover:border-gothic-steel/50'
+                }`}>
+                  <input
+                    type="radio"
+                    name="cityAffiliation"
+                    value="neutral"
+                    checked={formData.cityAffiliation === 'neutral'}
+                    onChange={(e) => setFormData({ ...formData, cityAffiliation: e.target.value })}
+                    className="sr-only"
+                  />
+                  <div className="flex items-center">
+                    <div className={`w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center ${
+                      formData.cityAffiliation === 'neutral' 
+                        ? 'border-gothic-steel bg-gothic-steel' 
+                        : 'border-gothic-dark-gray'
+                    }`}>
+                      {formData.cityAffiliation === 'neutral' && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-gothic-steel font-medium">Neutral Territory</div>
+                      <div className="text-sm text-gothic-steel">Walk between the cities, bound to neither</div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.5 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
               className="text-sm"
             >
               <label className="flex items-start text-gothic-steel">
@@ -290,7 +403,7 @@ export default function Register() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.75, duration: 0.5 }}
+              transition={{ delay: 0.9, duration: 0.5 }}
               className="text-sm"
             >
               <label className="flex items-start text-gothic-steel">
@@ -314,7 +427,7 @@ export default function Register() {
               disabled={loading}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.5 }}
+              transition={{ delay: 1.0, duration: 0.5 }}
               className="w-full cyber-button text-center py-3 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Initiating Chronicle...' : 'Begin Your Journey'}
@@ -324,7 +437,7 @@ export default function Register() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.9, duration: 0.5 }}
+            transition={{ delay: 1.1, duration: 0.5 }}
             className="mt-8 text-center"
           >
             <p className="text-gothic-steel">

@@ -4,7 +4,13 @@ import { supabaseAdmin } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     // Get the profile data
-    const { id, username, user_role, city_affiliation } = await request.json();
+    const { id, username, city_affiliation } = await request.json();
+    
+    console.log('API: Received profile creation request:', {
+      id,
+      username,
+      city_affiliation
+    });
     
     if (!id || !username) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -16,14 +22,17 @@ export async function POST(request: NextRequest) {
 
     console.log('API: Creating profile for user:', id, 'with username:', username);
 
+    // Normalize city_affiliation to lowercase to match database constraint
+    const normalizedAffiliation = city_affiliation ? city_affiliation.toLowerCase() : 'neutral';
+
     // Create the profile using admin client to bypass RLS
     const { data, error } = await supabaseAdmin
       .from('profiles')
       .insert({
         id: id,
         username: username,
-        user_role: user_role || 'user',
-        city_affiliation: city_affiliation || 'neutral',
+        display_name: username, // Use username as display name initially
+        city_affiliation: normalizedAffiliation,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })

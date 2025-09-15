@@ -49,3 +49,23 @@ pids
 *.pid
 *.seed
 *.pid.lock
+
+# Temporary files and scripts
+temp/
+tmp/
+*-temp.*
+*-tmp.*
+fix-*.js
+cleanup-*.js
+delete-*.js
+manual-*.js
+test-*.js
+*-test.*
+*.backup
+*.bak
+
+# Database dumps and sensitive SQL
+*.dump
+*-backup.sql
+*-dump.sql
+user-data.csv
