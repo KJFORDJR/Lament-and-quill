@@ -13,10 +13,12 @@ export async function POST(request: NextRequest) {
     });
     
     if (!id || !username) {
+      console.log('API: Missing required fields - id:', !!id, 'username:', !!username);
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     if (!supabaseAdmin) {
+      console.log('API: Supabase admin client not available');
       return NextResponse.json({ error: 'Service not available' }, { status: 500 });
     }
 
@@ -24,6 +26,28 @@ export async function POST(request: NextRequest) {
 
     // Normalize city_affiliation to lowercase to match database constraint
     const normalizedAffiliation = city_affiliation ? city_affiliation.toLowerCase() : 'neutral';
+    console.log('API: Normalized city affiliation from', city_affiliation, 'to', normalizedAffiliation);
+
+    // Check if profile already exists
+    const { data: existingProfile, error: checkError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, username')
+      .eq('id', id)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows found
+      console.log('API: Error checking existing profile:', checkError);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    }
+
+    if (existingProfile) {
+      console.log('API: Profile already exists for user:', id, 'username:', existingProfile.username);
+      return NextResponse.json({ 
+        success: true, 
+        data: existingProfile,
+        message: 'Profile already exists'
+      });
+    }
 
     // Create the profile using admin client to bypass RLS
     const { data, error } = await supabaseAdmin
