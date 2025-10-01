@@ -1,67 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useSystemConfig } from '@/hooks/useSystemConfig';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface SystemConfig {
-  maintenance_mode: boolean;
-  registration_enabled: boolean;
-  forum_enabled: boolean;
-  marketplace_enabled: boolean;
-}
 
 interface MaintenanceWrapperProps {
   children: React.ReactNode;
 }
 
 export function MaintenanceWrapper({ children }: MaintenanceWrapperProps) {
-  const [config, setConfig] = useState<SystemConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { config, loading } = useSystemConfig();
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
-
-  useEffect(() => {
-    // Fetch system configuration
-    const fetchConfig = async () => {
-      try {
-        const timestamp = Date.now();
-        const response = await fetch(`/api/system-config?t=${timestamp}`, { 
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        });
-        if (response.ok) {
-          const configData = await response.json();
-          setConfig(configData);
-        } else {
-          console.error('MaintenanceWrapper: Failed to fetch config, status:', response.status);
-        }
-      } catch (error) {
-        console.error('MaintenanceWrapper: Failed to fetch system config:', error);
-        // Assume normal operation if we can't fetch config
-        setConfig({
-          maintenance_mode: false,
-          registration_enabled: true,
-          forum_enabled: true,
-          marketplace_enabled: true,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConfig();
-    
-    // Set up an interval to periodically refetch config (every 10 seconds for more responsive updates)
-    const interval = setInterval(fetchConfig, 10000);
-    
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     if (loading || !config) return;
